@@ -97,7 +97,8 @@ const createService = async () => {
     }
   })
 
-  TrackPlayer.addEventListener(Event.PlaybackState, () => {
+  TrackPlayer.addEventListener(Event.PlaybackState, data => {
+    console.log(State[data.state])
     trackPlayerCommands.enqueue(async () => {
       setPlayerState(await getPlayerState())
     })

@@ -221,14 +221,14 @@ dependencies {
         implementation jscFlavor
     }
 
-    implementation(project(":react-native-track-player")) {
-        exclude group:'com.google.android.exoplayer'
-    }
-    implementation project(':exoplayer-library-core')
-    implementation project(':exoplayer-extension-ffmpeg')
-    compileOnly project(':exoplayer-library-dash')
-    compileOnly project(':exoplayer-library-hls')
-    compileOnly project(':exoplayer-library-smoothstreaming')
+    // implementation(project(":react-native-track-player")) {
+    //     exclude group:'com.google.android.exoplayer'
+    // }
+    // implementation project(':exoplayer-library-core')
+    // implementation project(':exoplayer-extension-ffmpeg')
+    // compileOnly project(':exoplayer-library-dash')
+    // compileOnly project(':exoplayer-library-hls')
+    // compileOnly project(':exoplayer-library-smoothstreaming')
 }
 
 // Run this once to be able to run the application with BUCK

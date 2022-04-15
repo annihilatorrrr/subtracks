@@ -19,7 +19,6 @@ import * as RNLocalize from 'react-native-localize'
 i18next.use(backend).use(languageDetector).use(initReactI18next).init({
   compatibilityJSON: 'v3',
   fallbackLng: 'en',
-  debug: true,
 })
 
 RNLocalize.addEventListener('change', () => {

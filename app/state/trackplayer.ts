@@ -183,7 +183,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     return trackPlayerCommands.enqueue(async () => {
       const shuffled = shuffle !== undefined ? shuffle : !!get().shuffleOrder
 
-      await TrackPlayer.setupPlayer(get().getPlayerOptions())
+      // await TrackPlayer.setupPlayer(get().getPlayerOptions())
       await TrackPlayer.reset()
 
       if (queue.length === 0) {
@@ -281,7 +281,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       const queueContextType = get().queueContextType
 
       await TrackPlayer.reset()
-      await TrackPlayer.setupPlayer(get().getPlayerOptions())
+      // await TrackPlayer.setupPlayer(get().getPlayerOptions())
 
       try {
         for (const track of queue) {

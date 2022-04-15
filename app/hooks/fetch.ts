@@ -203,7 +203,7 @@ export const useFetchExistingFile: () => (options: FetchExisingFileOptions) => P
     const fileDir = cacheDir(serverId, itemType, itemId)
     try {
       const dir = await RNFS.readDir(fileDir)
-      console.log('existing file:', dir[0].path)
+      // console.log('existing file:', dir[0].path)
       return dir[0].path
     } catch {}
   }
@@ -299,7 +299,7 @@ export const useFetchFile: () => (options: FetchFileOptions) => Promise<string> 
     const downloadPath = res.path()
     queryClient.setQueryData<string>(qk.existingFiles(itemType, itemId), downloadPath)
 
-    console.log('downloaded file:', downloadPath)
+    // console.log('downloaded file:', downloadPath)
     return downloadPath
   }
 }

@@ -4,14 +4,15 @@ import colors from '@app/styles/colors'
 import React from 'react'
 import { StatusBar, StyleSheet, View } from 'react-native'
 import { MenuProvider } from 'react-native-popup-menu'
+import { State } from 'react-native-track-player'
 import { QueryClientProvider } from 'react-query'
 import ProgressHook from './components/ProgressHook'
 import queryClient from './queryClient'
 import { useStore } from './state/store'
 
 const Debug = () => {
-  const currentTrackTitle = useStore(store => store.currentTrack?.title)
-  console.log('currentTrackTitle', currentTrackTitle)
+  const playerState = useStore(store => store.playerState)
+  // console.log('playerState', State[playerState])
   return <></>
 }
 

@@ -65,7 +65,7 @@ const Controls = React.memo(() => {
 
   return (
     <View style={styles.controls}>
-      {state === State.Buffering ? (
+      {state === State.Buffering || state === State.Connecting ? (
         <ActivityIndicator color="white" size="large" animating={true} />
       ) : (
         <PressableOpacity onPress={action} hitSlop={14}>

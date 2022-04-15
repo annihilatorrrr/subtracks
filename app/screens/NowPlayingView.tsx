@@ -277,6 +277,7 @@ const PlayerControls = () => {
       playPauseAction = pause
       break
     case State.Buffering:
+    case State.Connecting:
       disabled = false
       playPauseIcon = 'circle'
       playPauseAction = pause
