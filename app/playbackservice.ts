@@ -66,7 +66,7 @@ const createService = async () => {
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => {
     reset()
-    trackPlayerCommands.enqueue(TrackPlayer.destroy)
+    trackPlayerCommands.enqueue(TrackPlayer.reset)
   })
 
   TrackPlayer.addEventListener(Event.RemotePlay, () => trackPlayerCommands.enqueue(TrackPlayer.play))
