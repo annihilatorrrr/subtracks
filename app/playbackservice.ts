@@ -22,9 +22,9 @@ const setCurrentTrackIdx = (idx?: number) => {
   })
 }
 
-const setNetState = (netState: 'mobile' | 'wifi') => {
+const setNetState = (netState: 'mobile' | 'wifi', rebuildQueue: boolean) => {
   unstable_batchedUpdates(() => {
-    useStore.getState().setNetState(netState)
+    useStore.getState().setNetState(netState, rebuildQueue)
   })
 }
 
@@ -53,14 +53,16 @@ const createService = async () => {
   )
 
   NetInfo.fetch().then(state => {
-    setNetState(state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi')
+    console.log('fetch NetState', state)
+    setNetState(state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi', false)
   })
 
-  NetInfo.addEventListener(state => {
+  NetInfo.addEventListener(async state => {
     const currentType = useStore.getState().netState
     const newType = state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi'
     if (currentType !== newType) {
-      setNetState(newType)
+      console.log('set new NetState', currentType, newType)
+      setNetState(newType, true)
     }
   })
 
