@@ -52,7 +52,7 @@ export type TrackPlayerSlice = {
   scrobbleTrack: (id: string) => Promise<void>
 
   netState: 'mobile' | 'wifi'
-  setNetState: (netState: 'mobile' | 'wifi', rebuildQueue?: boolean) => Promise<void>
+  setNetState: (netState: 'mobile' | 'wifi') => Promise<void>
 
   rebuildQueue: (forcePlay?: boolean) => Promise<void>
   buildStreamUri: (id: string) => string
@@ -254,7 +254,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   },
 
   netState: 'mobile',
-  setNetState: async (netState, rebuildQueue = true) => {
+  setNetState: async netState => {
     if (netState === get().netState) {
       return
     }
@@ -262,10 +262,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     set(state => {
       state.netState = netState
     })
-
-    if (rebuildQueue) {
-      get().rebuildQueue()
-    }
+    get().rebuildQueue()
   },
 
   rebuildQueue: async forcePlay => {

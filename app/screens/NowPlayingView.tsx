@@ -30,8 +30,6 @@ const NowPlayingHeader = withSuspenseMemo<{
   const queueContextType = useStore(store => store.queueContextType)
   const { t } = useTranslation()
 
-  console.log(t('resources.album.name', { count: 1 }))
-
   if (!track) {
     return <></>
   }

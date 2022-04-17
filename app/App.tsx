@@ -12,7 +12,7 @@ import { useStore } from './state/store'
 
 const Debug = () => {
   const playerState = useStore(store => store.playerState)
-  // console.log('playerState', State[playerState])
+  console.log('playerState', State[playerState])
   return <></>
 }
 

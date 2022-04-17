@@ -2,7 +2,6 @@ import { getCurrentTrack, getPlayerState, trackPlayerCommands } from '@app/state
 import TrackPlayer, { Event, State } from 'react-native-track-player'
 import { useStore } from './state/store'
 import { unstable_batchedUpdates } from 'react-native'
-import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo'
 
 const reset = () => {
   unstable_batchedUpdates(() => {
@@ -19,12 +18,6 @@ const setPlayerState = (state: State) => {
 const setCurrentTrackIdx = (idx?: number) => {
   unstable_batchedUpdates(() => {
     useStore.getState().setCurrentTrackIdx(idx)
-  })
-}
-
-const setNetState = (netState: 'mobile' | 'wifi', rebuildQueue: boolean) => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().setNetState(netState, rebuildQueue)
   })
 }
 
@@ -51,20 +44,6 @@ const createService = async () => {
       }
     },
   )
-
-  NetInfo.fetch().then(state => {
-    console.log('fetch NetState', state)
-    setNetState(state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi', false)
-  })
-
-  NetInfo.addEventListener(async state => {
-    const currentType = useStore.getState().netState
-    const newType = state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi'
-    if (currentType !== newType) {
-      console.log('set new NetState', currentType, newType)
-      setNetState(newType, true)
-    }
-  })
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => {
     reset()
@@ -99,8 +78,7 @@ const createService = async () => {
     }
   })
 
-  TrackPlayer.addEventListener(Event.PlaybackState, data => {
-    console.log(State[data.state])
+  TrackPlayer.addEventListener(Event.PlaybackState, () => {
     trackPlayerCommands.enqueue(async () => {
       setPlayerState(await getPlayerState())
     })
@@ -139,6 +117,8 @@ const createService = async () => {
 
   TrackPlayer.addEventListener(Event.PlaybackError, data => {
     const { code, message } = data as Record<string, string>
+
+    console.log('error', data)
 
     // fix for ExoPlayer aborting playback while esimating content length
     if (code === 'playback-source' && message.includes('416')) {
