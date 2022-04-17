@@ -22,7 +22,7 @@ buildscript {
         // in the individual module build.gradle files
 
         // react-native-async-storage next
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.10"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.21"
 
         // react-native-track-player
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.30"
