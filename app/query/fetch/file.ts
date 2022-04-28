@@ -23,9 +23,19 @@ export async function fetchExistingFile(
   const fileDir = cacheDir(serverId, itemType, itemId)
 
   try {
-    const dir = await RNFS.readDir(fileDir)
-    console.log('existing file:', dir[0].path)
-    return dir[0].path
+    const stat = await RNFS.stat(fileDir)
+    if (!stat.isDirectory()) {
+      return
+    }
+
+    const names = await RNFS.readdir(fileDir)
+    if (names.length === 0) {
+      return
+    }
+
+    const filePath = path.join(fileDir, names[0])
+    console.log('existing file:', filePath)
+    return filePath
   } catch {}
 }
 
