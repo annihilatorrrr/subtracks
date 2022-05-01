@@ -142,8 +142,11 @@ const createService = async () => {
   })
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => {
-    reset()
-    trackPlayerCommands.enqueue(TrackPlayer.destroy)
+    // reset()
+    // trackPlayerCommands.enqueue(TrackPlayer.destroy)
+    unstable_batchedUpdates(() => {
+      useStore.getState().stop()
+    })
   })
 
   TrackPlayer.addEventListener(Event.RemotePlay, () => {

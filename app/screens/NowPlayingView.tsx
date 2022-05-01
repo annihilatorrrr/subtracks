@@ -262,7 +262,7 @@ const PlayerControls = () => {
   const previous = usePrevious()
   const shuffled = useStore(store => !!store.shuffleOrder)
   const toggleShuffle = useStore(store => store.toggleShuffle)
-  const repeatMode = useStore(store => store.repeatMode)
+  const repeatMode = useStore(store => store.session?.repeatMode || RepeatMode.Off)
   const toggleRepeat = useStore(store => store.toggleRepeatMode)
   const navigation = useNavigation()
 
