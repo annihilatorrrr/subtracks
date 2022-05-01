@@ -2,6 +2,7 @@ import { Track } from 'react-native-track-player'
 
 export type TrackExt = Track & {
   id: string
+  idx: number
   coverArt?: string
   artistId?: string
   albumId?: string
@@ -15,4 +16,4 @@ export type Progress = {
   buffered: number
 }
 
-export type QueueContextType = 'album' | 'playlist' | 'song' | 'artist'
+export type QueueType = 'album' | 'playlist' | 'song' | 'artist'

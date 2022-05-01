@@ -1,9 +1,12 @@
 import { NoClientError } from '@app/models/error'
-import { Progress, QueueContextType, TrackExt } from '@app/models/trackplayer'
+import { Song } from '@app/models/library'
+import { Progress, QueueType, TrackExt } from '@app/models/trackplayer'
+import QueueEvents from '@app/trackplayer/QueueEvents'
 import PromiseQueue from '@app/util/PromiseQueue'
+import userAgent from '@app/util/userAgent'
 import produce from 'immer'
 import TrackPlayer, { PlayerOptions, RepeatMode, State } from 'react-native-track-player'
-import { GetStore, SetStore } from './store'
+import { GetStore, SetStore, useStore } from './store'
 
 export type SetQueueOptions = {
   title: string
@@ -14,15 +17,40 @@ export type SetQueueOptions = {
 export type SetQueueOptionsInternal = SetQueueOptions & {
   queue: TrackExt[]
   contextId: string
-  type: QueueContextType
+  type: QueueType
+}
+
+export type Session = {
+  queue: Song[]
+  title: string
+  type: QueueType
+  current: Song
+  currentIdx: number
+  progress: Progress
+  contextId: string
+  shuffleOrder?: number[]
+  repeatMode: RepeatMode
+  duckPaused: boolean
+}
+
+export type CreateSessionOptions = {
+  queue: Song[]
+  title: string
+  type: QueueType
+  contextId: string
+  playIdx?: number
+  shuffle?: boolean
 }
 
 export type TrackPlayerSlice = {
+  session?: Session
+  createSession: (options: CreateSessionOptions) => Promise<void>
+
   queueName?: string
   setQueueName: (name?: string) => void
 
-  queueContextType?: QueueContextType
-  setQueueContextType: (queueContextType?: QueueContextType) => void
+  queueContextType?: QueueType
+  setQueueContextType: (queueContextType?: QueueType) => void
 
   queueContextId?: string
   setQueueContextId: (queueContextId?: string) => void
@@ -63,6 +91,192 @@ export type TrackPlayerSlice = {
 }
 
 export const trackPlayerCommands = new PromiseQueue(1)
+
+export type TrackPlayerServiceSlice = {
+  onSession: () => Promise<void>
+  onTrackChanged: (nextTrack?: number, track?: number) => Promise<void>
+  onQueueEnded: () => Promise<void>
+  play: () => Promise<void>
+  pause: () => Promise<void>
+  next: () => Promise<void>
+  previous: () => Promise<void>
+}
+
+function mapSongToTrackExt(song: Song, idx: number): TrackExt {
+  return {
+    id: song.id,
+    idx,
+    title: song.title,
+    artist: song.artist || 'Unknown Artist',
+    album: song.album || 'Unknown Album',
+    url: useStore.getState().buildStreamUri(song.id),
+    artwork: require('@res/fallback.png'),
+    userAgent,
+    duration: song.duration,
+    artistId: song.artistId,
+    albumId: song.albumId,
+    track: song.track,
+    discNumber: song.discNumber,
+  }
+}
+
+export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): TrackPlayerServiceSlice => ({
+  onSession: async () =>
+    trackPlayerCommands.enqueue(async () => {
+      try {
+        await TrackPlayer.destroy()
+      } catch {}
+      await TrackPlayer.setupPlayer(get().getPlayerOptions())
+
+      const session = get().session
+      if (!session) {
+        return
+      }
+
+      const { queue, current, currentIdx } = session
+
+      console.log('initial add')
+      await TrackPlayer.add(mapSongToTrackExt(current, currentIdx))
+
+      if (currentIdx > 0) {
+        console.log('initial add prev')
+        await TrackPlayer.add(mapSongToTrackExt(queue[currentIdx - 1], currentIdx - 1), 0)
+      }
+
+      if (currentIdx + 1 < queue.length - 1) {
+        console.log('initial add next')
+        await TrackPlayer.add(mapSongToTrackExt(queue[currentIdx + 1], currentIdx + 1))
+      }
+
+      await TrackPlayer.play()
+    }),
+
+  onTrackChanged: async (nextTrack, track) =>
+    trackPlayerCommands.enqueue(async () => {
+      if (nextTrack === undefined) {
+        console.log('queue ended')
+        return
+      }
+
+      track = track !== undefined ? track : 0
+      const changeDir = nextTrack - track
+
+      const playerQueue = await getQueue()
+      const currentTrack = playerQueue[nextTrack]
+
+      set(state => {
+        if (!state.session) {
+          return
+        }
+
+        state.session.currentIdx = currentTrack.idx
+        state.session.current = state.session.queue[currentTrack.idx]
+      })
+
+      const { queue, currentIdx, repeatMode } = get().session!
+
+      if (queue.length === 1) {
+        console.log('single song queue, nothing to do')
+        return
+      }
+
+      // if next exists (triggered by adding behind) return
+      if (changeDir > 0 && playerQueue.length - 1 >= nextTrack + 1) {
+        console.log('next already exists')
+        return
+      }
+
+      // if prev exists (triggered by removing behind) return
+      if (changeDir < 0 && nextTrack > 0) {
+        console.log('previous already exists')
+        return
+      }
+
+      if (changeDir > 0) {
+        console.log('FORWARD')
+
+        // remove first if it's not the previous track
+        if (nextTrack === 2) {
+          await TrackPlayer.remove(0)
+          // another BACKWARD event is triggered
+        }
+
+        let nextIdx = currentIdx + 1
+
+        // if we're at the end of the queue, return
+        if (nextIdx >= queue.length) {
+          if (repeatMode === RepeatMode.Queue) {
+            nextIdx = 0
+          } else {
+            console.log('nothing left in queue to add')
+            return
+          }
+        }
+
+        // add next
+        await TrackPlayer.add(mapSongToTrackExt(queue[nextIdx], nextIdx))
+      } else if (changeDir < 0) {
+        console.log('BACKWARD')
+
+        // remove track beyond next if it exists
+        if (playerQueue.length === 3) {
+          await TrackPlayer.remove(track + 1)
+        }
+
+        let nextIdx = currentIdx - 1
+
+        // if we're at the beginning of the queue, return
+        if (nextIdx < 0) {
+          if (repeatMode === RepeatMode.Queue) {
+            nextIdx = queue.length - 1
+          } else {
+            console.log('nothing left to add (already at beginning)')
+            return
+          }
+        }
+
+        // add prev
+        await TrackPlayer.add(mapSongToTrackExt(queue[nextIdx], nextIdx), 0)
+        // another FORWARD event is triggered
+      } else {
+        console.log('NO CHANGE')
+        // triggered on add first only
+        return
+      }
+
+      console.log((await getQueue()).map(t => t.title))
+    }),
+
+  onQueueEnded: async () => {
+    set(state => {
+      delete state.session
+    })
+  },
+
+  play: async () =>
+    trackPlayerCommands.enqueue(async () => {
+      await TrackPlayer.play()
+    }),
+
+  pause: async () =>
+    trackPlayerCommands.enqueue(async () => {
+      await TrackPlayer.pause()
+    }),
+
+  next: async () =>
+    trackPlayerCommands.enqueue(async () => {
+      try {
+        await TrackPlayer.skipToNext()
+      } catch {}
+    }),
+
+  previous: async () =>
+    trackPlayerCommands.enqueue(async () => {
+      try {
+        await TrackPlayer.skipToPrevious()
+      } catch {}
+    }),
+})
 
 export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
   queueName: undefined,
@@ -178,6 +392,46 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     set(state => {
       state.duckPaused = duckPaused
     }),
+
+  createSession: async ({ queue, type, title, contextId, playIdx, shuffle }) => {
+    return trackPlayerCommands.enqueue(async () => {
+      const currentSession = get().session
+
+      shuffle = shuffle !== undefined ? shuffle : !!currentSession?.shuffleOrder
+
+      if (queue.length === 0) {
+        set(state => {
+          delete state.session
+        })
+        QueueEvents.emit('session')
+        return
+      }
+
+      const session: Session = {
+        queue,
+        title,
+        type,
+        contextId,
+        progress: { position: 0, duration: 0, buffered: 0 },
+        repeatMode: RepeatMode.Off,
+        duckPaused: false,
+        currentIdx: playIdx || 0,
+        current: queue[playIdx || 0],
+      }
+
+      if (shuffle) {
+        const { shuffled, shuffleOrder } = shuffleQueue(queue, playIdx)
+        session.queue = shuffled
+        session.shuffleOrder = shuffleOrder
+        session.currentIdx = 0
+      }
+
+      set(state => {
+        state.session = session
+      })
+      QueueEvents.emit('session')
+    })
+  },
 
   queue: [],
   setQueue: async ({ queue, title, type, contextId, playTrack, shuffle }) => {
@@ -409,4 +663,28 @@ function unshuffleTracks(tracks: TrackExt[], shuffleOrder: number[]): TrackExt[]
   }
 
   return shuffleOrder.map((_v, i) => tracks[shuffleOrder.indexOf(i)])
+}
+
+function shuffleQueue(queue: Song[], firstIdx?: number): { shuffled: Song[]; shuffleOrder: number[] } {
+  const queueIndexes = queue.map((_t, i) => i)
+
+  const shuffleOrder: number[] = []
+  for (let i = queueIndexes.length; i--; i > 0) {
+    const randi = Math.floor(Math.random() * (i + 1))
+    shuffleOrder.push(queueIndexes.splice(randi, 1)[0])
+  }
+
+  if (firstIdx !== undefined) {
+    shuffleOrder.splice(shuffleOrder.indexOf(firstIdx), 1)
+    shuffleOrder.unshift(firstIdx)
+  }
+
+  return {
+    shuffled: shuffleOrder.map(i => queue[i]),
+    shuffleOrder,
+  }
+}
+
+function unshuffleQueue(queue: Song[], shuffleOrder: number[]): Song[] {
+  return shuffleOrder.map((_v, i) => queue[shuffleOrder.indexOf(i)])
 }

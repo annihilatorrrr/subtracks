@@ -4,14 +4,20 @@ import equal from 'fast-deep-equal'
 import create, { GetState, Mutate, SetState, State, StateCreator, StateSelector, StoreApi } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
 import migrations from './migrations'
-import { createTrackPlayerSlice, TrackPlayerSlice } from './trackplayer'
+import {
+  createTrackPlayerServiceSlice,
+  createTrackPlayerSlice,
+  TrackPlayerServiceSlice,
+  TrackPlayerSlice,
+} from './trackplayer'
 import produce, { Draft } from 'immer'
 import { WritableDraft } from 'immer/dist/internal'
 
 const DB_VERSION = migrations.length
 
 export type Store = SettingsSlice &
-  TrackPlayerSlice & {
+  TrackPlayerSlice &
+  TrackPlayerServiceSlice & {
     hydrated: boolean
     setHydrated: (hydrated: boolean) => void
   }
@@ -58,6 +64,7 @@ export const useStore = create<
       immer((set, get) => ({
         ...createSettingsSlice(set, get),
         ...createTrackPlayerSlice(set, get),
+        ...createTrackPlayerServiceSlice(set, get),
 
         hydrated: false,
         setHydrated: hydrated =>

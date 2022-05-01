@@ -3,6 +3,7 @@ import { FetchExisingFileOptions, fetchExistingFile, fetchFile, FetchFileOptions
 import qk from '@app/query/queryKeys'
 import { getCurrentTrack, getPlayerState, trackPlayerCommands } from '@app/state/trackplayer'
 import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo'
+import equal from 'fast-deep-equal'
 import _ from 'lodash'
 import { unstable_batchedUpdates } from 'react-native'
 import TrackPlayer, { Event, State } from 'react-native-track-player'
@@ -145,15 +146,28 @@ const createService = async () => {
     trackPlayerCommands.enqueue(TrackPlayer.destroy)
   })
 
-  TrackPlayer.addEventListener(Event.RemotePlay, () => trackPlayerCommands.enqueue(TrackPlayer.play))
-  TrackPlayer.addEventListener(Event.RemotePause, () => trackPlayerCommands.enqueue(TrackPlayer.pause))
+  TrackPlayer.addEventListener(Event.RemotePlay, () => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().play()
+    })
+  })
+  TrackPlayer.addEventListener(Event.RemotePause, () => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().pause()
+    })
+  })
 
-  TrackPlayer.addEventListener(Event.RemoteNext, () =>
-    trackPlayerCommands.enqueue(() => TrackPlayer.skipToNext().catch(() => {})),
-  )
-  TrackPlayer.addEventListener(Event.RemotePrevious, () =>
-    trackPlayerCommands.enqueue(() => TrackPlayer.skipToPrevious().catch(() => {})),
-  )
+  TrackPlayer.addEventListener(Event.RemoteNext, () => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().next()
+    })
+  })
+
+  TrackPlayer.addEventListener(Event.RemotePrevious, () => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().previous()
+    })
+  })
 
   TrackPlayer.addEventListener(Event.RemoteDuck, data => {
     if (data.permanent) {
@@ -173,20 +187,27 @@ const createService = async () => {
     }
   })
 
-  TrackPlayer.addEventListener(Event.PlaybackState, () => {
+  TrackPlayer.addEventListener(Event.PlaybackState, event => {
+    console.log('PlaybackState', State[event.state])
     trackPlayerCommands.enqueue(async () => {
       setPlayerState(await getPlayerState())
     })
   })
 
-  TrackPlayer.addEventListener(Event.PlaybackTrackChanged, () => {
-    useStore.getState().setProgress({ position: 0, duration: 0, buffered: 0 })
-    trackPlayerCommands.enqueue(async () => {
-      setCurrentTrackIdx(await getCurrentTrack())
+  TrackPlayer.addEventListener(Event.PlaybackTrackChanged, event => {
+    console.log('PlaybackTrackChanged', event)
+
+    unstable_batchedUpdates(() => {
+      useStore.getState().onTrackChanged(event.nextTrack, event.track)
     })
+    // useStore.getState().setProgress({ position: 0, duration: 0, buffered: 0 })
+    // trackPlayerCommands.enqueue(async () => {
+    //   setCurrentTrackIdx(await getCurrentTrack())
+    // })
   })
 
   TrackPlayer.addEventListener(Event.PlaybackQueueEnded, event => {
+    console.log('PlaybackQueueEnded', event)
     const { position, track } = event
 
     // bogus event that fires when queue is changed
@@ -194,10 +215,14 @@ const createService = async () => {
       return
     }
 
-    trackPlayerCommands.enqueue(async () => {
-      await TrackPlayer.stop()
-      await TrackPlayer.skip(0)
+    unstable_batchedUpdates(() => {
+      useStore.getState().onQueueEnded()
     })
+
+    // trackPlayerCommands.enqueue(async () => {
+    //   await TrackPlayer.stop()
+    //   await TrackPlayer.skip(0)
+    // })
   })
 
   TrackPlayer.addEventListener(Event.PlaybackMetadataReceived, () => {
@@ -211,12 +236,19 @@ const createService = async () => {
   })
 
   TrackPlayer.addEventListener(Event.PlaybackError, data => {
+    console.log('PlaybackQueueEnded', data)
     const { code, message } = data as Record<string, string>
 
     // fix for ExoPlayer aborting playback while esimating content length
     if (code === 'playback-source' && message.includes('416')) {
       rebuildQueue(true)
     }
+  })
+
+  QueueEvents.addListener('session', () => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().onSession()
+    })
   })
 
   QueueEvents.addListener('set', async ({ queue }) => {

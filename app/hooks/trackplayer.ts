@@ -1,5 +1,5 @@
 import { Song } from '@app/models/library'
-import { QueueContextType, TrackExt } from '@app/models/trackplayer'
+import { QueueType, TrackExt } from '@app/models/trackplayer'
 import queryClient from '@app/query/queryClient'
 import QueueEvents from '@app/trackplayer/QueueEvents'
 import { useStore, useStoreDeep } from '@app/state/store'
@@ -93,6 +93,7 @@ export const useIsPlaying = (contextId: string | undefined, track: number) => {
 export function mapSongToTrackExt(song: Song): TrackExt {
   return {
     id: song.id,
+    idx: 0,
     title: song.title,
     artist: song.artist || 'Unknown Artist',
     album: song.album || 'Unknown Album',
@@ -107,8 +108,9 @@ export function mapSongToTrackExt(song: Song): TrackExt {
   }
 }
 
-export const useSetQueue = (type: QueueContextType, songs?: Song[]) => {
+export const useSetQueue = (type: QueueType, songs?: Song[]) => {
   const _setQueue = useStore(store => store.setQueue)
+  const createSession = useStore(store => store.createSession)
 
   const contextId = `${type}-${songs?.map(s => s.id).join('-')}`
 
@@ -131,8 +133,16 @@ export const useSetQueue = (type: QueueContextType, songs?: Song[]) => {
       }
     }
 
-    await _setQueue({ queue, type, contextId, ...options })
-    QueueEvents.emit('set', { queue })
+    await createSession({
+      queue: songs,
+      title: options.title,
+      type,
+      contextId,
+      playIdx: options.playTrack,
+      shuffle: options.shuffle,
+    })
+    // await _setQueue({ queue, type, contextId, ...options })
+    // QueueEvents.emit('set', { queue })
   }
 
   return { setQueue, contextId }
