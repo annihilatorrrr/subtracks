@@ -1,9 +1,7 @@
 import { fetchAlbum } from '@app/query/fetch/api'
 import { FetchExisingFileOptions, fetchExistingFile, fetchFile, FetchFileOptions } from '@app/query/fetch/file'
 import qk from '@app/query/queryKeys'
-import { rntpCommands } from '@app/state/trackplayer'
-import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo'
-import _ from 'lodash'
+import NetInfo from '@react-native-community/netinfo'
 import { unstable_batchedUpdates } from 'react-native'
 import TrackPlayer, { Event, State } from 'react-native-track-player'
 import queryClient from '../query/queryClient'
@@ -16,12 +14,6 @@ import QueueEvents from './QueueEvents'
 //     useStore.getState().resetTrackPlayerState()
 //   })
 // }
-
-const setNetState = (netState: 'mobile' | 'wifi') => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().setNetState(netState)
-  })
-}
 
 const setQueryDataAlbum = (queryKey: any, data: ReturnedPromiseResolvedType<typeof fetchAlbum>) => {
   unstable_batchedUpdates(() => {
@@ -98,16 +90,16 @@ const createService = async () => {
   //   },
   // )
 
-  NetInfo.fetch().then(state => {
-    setNetState(state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi')
+  NetInfo.fetch().then(netInfo => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().onNetInfo(netInfo)
+    })
   })
 
-  NetInfo.addEventListener(state => {
-    const currentType = useStore.getState().netState
-    const newType = state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi'
-    if (currentType !== newType) {
-      setNetState(newType)
-    }
+  NetInfo.addEventListener(netInfo => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().onNetInfo(netInfo)
+    })
   })
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => {

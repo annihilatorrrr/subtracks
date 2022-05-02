@@ -4,6 +4,7 @@ import { Progress, QueueType, TrackExt } from '@app/models/trackplayer'
 import QueueEvents from '@app/trackplayer/QueueEvents'
 import PromiseQueue from '@app/util/PromiseQueue'
 import userAgent from '@app/util/userAgent'
+import { NetInfoState, NetInfoStateType } from '@react-native-community/netinfo'
 import TrackPlayer, { PlayerOptions, RepeatMode, State } from 'react-native-track-player'
 import { GetStore, SetStore, useStore } from './store'
 
@@ -44,29 +45,25 @@ export type CreateSessionOptions = {
 }
 
 export type TrackPlayerSlice = {
-  session?: Session
-  createSession: (options: CreateSessionOptions) => Promise<void>
-
   scrobbleTrack: (id: string) => Promise<void>
-
-  netState: 'mobile' | 'wifi'
-  setNetState: (netState: 'mobile' | 'wifi') => Promise<void>
-
-  buildStreamUri: (id: string) => string
-
-  getPlayerOptions: () => PlayerOptions
 }
 
 export const rntpCommands = new PromiseQueue(1)
 
 export type TrackPlayerServiceSlice = {
-  setProgress: (progress: Progress) => void
+  session?: Session
+  netState: 'mobile' | 'wifi'
+
+  createSession: (options: CreateSessionOptions) => Promise<void>
 
   onSession: () => Promise<void>
+
   onPlaybackTrackChanged: (nextTrack?: number, track?: number) => Promise<void>
   onPlaybackState: (state: State) => void
   onPlaybackError: (code: string, message: string) => Promise<void>
   onRemoteDuck: (paused: boolean, permanent: boolean) => Promise<void>
+
+  onNetInfo: (netState: NetInfoState) => Promise<void>
 
   play: () => Promise<void>
   pause: () => Promise<void>
@@ -75,33 +72,66 @@ export type TrackPlayerServiceSlice = {
   previous: () => Promise<void>
   skip: (track: number) => Promise<void>
   seek: (position: number) => Promise<void>
-  releaseProgressHold: () => void
+  _seek: (position: number) => Promise<void>
   toggleRepeatMode: () => Promise<void>
   toggleShuffle: () => Promise<void>
   reset: () => Promise<void>
 
-  _syncQueue: (rebuild?: boolean) => Promise<void>
-}
+  setProgress: (progress: Progress) => void
+  releaseProgressHold: () => void
 
-function mapSongToTrackExt(song: Song, idx: number): TrackExt {
-  return {
-    id: song.id,
-    idx,
-    title: song.title,
-    artist: song.artist || 'Unknown Artist',
-    album: song.album || 'Unknown Album',
-    url: useStore.getState().buildStreamUri(song.id),
-    artwork: require('@res/fallback.png'),
-    userAgent,
-    duration: song.duration,
-    artistId: song.artistId,
-    albumId: song.albumId,
-    track: song.track,
-    discNumber: song.discNumber,
-  }
+  _syncQueue: (rebuild?: boolean) => Promise<void>
+  _resetQueue: (playerState: State, position?: number) => Promise<void>
+  _getPlayerOptions: () => PlayerOptions
+  _buildStreamUri: (id: string) => string
+  _mapSong: (song: Song, idx: number) => TrackExt
 }
 
 export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): TrackPlayerServiceSlice => ({
+  netState: 'mobile',
+
+  createSession: async ({ queue, type, title, contextId, playIdx, shuffle }) => {
+    return rntpCommands.enqueue(async () => {
+      const currentSession = get().session
+
+      shuffle = shuffle !== undefined ? shuffle : !!currentSession?.shuffleOrder
+
+      if (queue.length === 0) {
+        set(state => {
+          state.session = undefined
+        })
+        QueueEvents.emit('session')
+        return
+      }
+
+      const session: Session = {
+        queue,
+        title,
+        type,
+        contextId,
+        progress: { position: 0, duration: 0, buffered: 0 },
+        holdProgress: false,
+        playerState: State.None,
+        repeatMode: RepeatMode.Off,
+        duckPaused: false,
+        currentIdx: playIdx || 0,
+        current: queue[playIdx || 0],
+      }
+
+      if (shuffle) {
+        const { shuffled, order } = shuffleQueue(queue, playIdx)
+        session.queue = shuffled
+        session.shuffleOrder = order
+        session.currentIdx = 0
+      }
+
+      set(state => {
+        state.session = session
+      })
+      QueueEvents.emit('session')
+    })
+  },
+
   setProgress: progress => {
     set(state => {
       if (!state.session) {
@@ -117,7 +147,7 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       try {
         await TrackPlayer.destroy()
       } catch {}
-      await TrackPlayer.setupPlayer(get().getPlayerOptions())
+      await TrackPlayer.setupPlayer(get()._getPlayerOptions())
 
       await get()._syncQueue()
       await TrackPlayer.play()
@@ -213,6 +243,27 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       }
     }),
 
+  onNetInfo: async netInfo => {
+    const oldNetState = get().netState
+
+    set(state => {
+      state.netState = netInfo.type === NetInfoStateType.cellular ? 'mobile' : 'wifi'
+    })
+
+    const session = get().session
+    if (!session) {
+      return
+    }
+
+    const { progress, playerState } = session
+
+    if (oldNetState !== get().netState) {
+      await rntpCommands.enqueue(async () => {
+        await get()._resetQueue(playerState, progress.position)
+      })
+    }
+  },
+
   play: async () =>
     rntpCommands.enqueue(async () => {
       await TrackPlayer.play()
@@ -285,26 +336,38 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
         state.session.current = state.session.queue[state.session.currentIdx]
       })
 
-      await TrackPlayer.reset()
-      await get()._syncQueue()
-
-      if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
-        await TrackPlayer.play()
-      }
+      await get()._resetQueue(playerState)
     }),
+
+  _resetQueue: async (playerState, position) => {
+    await TrackPlayer.reset()
+    await get()._syncQueue()
+
+    if (position !== undefined) {
+      await get()._seek(position)
+    }
+
+    if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
+      await TrackPlayer.play()
+    }
+  },
 
   seek: async position =>
     rntpCommands.enqueue(async () => {
-      set(state => {
-        if (!state.session) {
-          return
-        }
-
-        state.session.holdProgress = true
-        state.session.progress.position = position
-      })
-      await TrackPlayer.seekTo(position)
+      await get()._seek(position)
     }),
+
+  _seek: async position => {
+    set(state => {
+      if (!state.session) {
+        return
+      }
+
+      state.session.holdProgress = true
+      state.session.progress.position = position
+    })
+    await TrackPlayer.seekTo(position)
+  },
 
   releaseProgressHold: () => {
     set(state => {
@@ -445,11 +508,8 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       const nextIdx = getNextIdx()
       const prevIdx = getPrevIdx()
 
-      await TrackPlayer.add([
-        mapSongToTrackExt(queue[currentIdx], currentIdx),
-        mapSongToTrackExt(queue[nextIdx], nextIdx),
-      ])
-      await TrackPlayer.add(mapSongToTrackExt(queue[prevIdx], prevIdx), 0)
+      await TrackPlayer.add([get()._mapSong(queue[currentIdx], currentIdx), get()._mapSong(queue[nextIdx], nextIdx)])
+      await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
       console.log((await getQueue()).map(t => t.title))
       return
     }
@@ -468,8 +528,8 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       const nextIdx = getNextIdx()
       const prevIdx = getPrevIdx()
 
-      await TrackPlayer.add(mapSongToTrackExt(queue[nextIdx], nextIdx))
-      await TrackPlayer.add(mapSongToTrackExt(queue[prevIdx], prevIdx), 0)
+      await TrackPlayer.add(get()._mapSong(queue[nextIdx], nextIdx))
+      await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
 
       await TrackPlayer.updateMetadataForTrack(rntpCurrentIdx, { ...currentTrack, idx: currentIdx } as TrackExt)
       console.log((await getQueue()).map(t => t.title))
@@ -479,7 +539,7 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
     if (rntpCurrentIdx === 2) {
       console.log('adding next track')
       const nextIdx = getNextIdx()
-      await TrackPlayer.add(mapSongToTrackExt(queue[nextIdx], nextIdx))
+      await TrackPlayer.add(get()._mapSong(queue[nextIdx], nextIdx))
       await TrackPlayer.remove(0)
       console.log((await getQueue()).map(t => t.title))
       return
@@ -488,57 +548,56 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
     if (rntpCurrentIdx === 0) {
       console.log('adding prev track')
       const prevIdx = getPrevIdx()
-      await TrackPlayer.add(mapSongToTrackExt(queue[prevIdx], prevIdx), 0)
+      await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
       await TrackPlayer.remove(3)
       console.log((await getQueue()).map(t => t.title))
       return
     }
   },
-})
 
-export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
-  createSession: async ({ queue, type, title, contextId, playIdx, shuffle }) => {
-    return rntpCommands.enqueue(async () => {
-      const currentSession = get().session
+  _getPlayerOptions: () => {
+    const { minBuffer, maxBuffer } = get().settings
 
-      shuffle = shuffle !== undefined ? shuffle : !!currentSession?.shuffleOrder
+    return {
+      minBuffer,
+      playBuffer: minBuffer / 2,
+      maxBuffer,
+    }
+  },
 
-      if (queue.length === 0) {
-        set(state => {
-          state.session = undefined
-        })
-        QueueEvents.emit('session')
-        return
-      }
+  _buildStreamUri: id => {
+    const client = get().client
+    if (!client) {
+      throw new NoClientError()
+    }
 
-      const session: Session = {
-        queue,
-        title,
-        type,
-        contextId,
-        progress: { position: 0, duration: 0, buffered: 0 },
-        holdProgress: false,
-        playerState: State.None,
-        repeatMode: RepeatMode.Off,
-        duckPaused: false,
-        currentIdx: playIdx || 0,
-        current: queue[playIdx || 0],
-      }
-
-      if (shuffle) {
-        const { shuffled, order } = shuffleQueue(queue, playIdx)
-        session.queue = shuffled
-        session.shuffleOrder = order
-        session.currentIdx = 0
-      }
-
-      set(state => {
-        state.session = session
-      })
-      QueueEvents.emit('session')
+    return client.streamUri({
+      id,
+      estimateContentLength: true,
+      maxBitRate: get().netState === 'mobile' ? get().settings.maxBitrateMobile : get().settings.maxBitrateWifi,
     })
   },
 
+  _mapSong(song: Song, idx: number): TrackExt {
+    return {
+      id: song.id,
+      idx,
+      title: song.title,
+      artist: song.artist || 'Unknown Artist',
+      album: song.album || 'Unknown Album',
+      url: get()._buildStreamUri(song.id),
+      artwork: require('@res/fallback.png'),
+      userAgent,
+      duration: song.duration,
+      artistId: song.artistId,
+      albumId: song.albumId,
+      track: song.track,
+      discNumber: song.discNumber,
+    }
+  },
+})
+
+export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
   scrobbleTrack: async id => {
     const client = get().client
     if (!client) {
@@ -552,38 +611,6 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     try {
       await client.scrobble({ id })
     } catch {}
-  },
-
-  netState: 'mobile',
-  setNetState: async netState => {
-    if (netState === get().netState) {
-      return
-    }
-    set(state => {
-      state.netState = netState
-    })
-    // get().rebuildQueue()
-  },
-
-  buildStreamUri: id => {
-    const client = get().client
-    if (!client) {
-      throw new NoClientError()
-    }
-
-    return client.streamUri({
-      id,
-      estimateContentLength: true,
-      maxBitRate: get().netState === 'mobile' ? get().settings.maxBitrateMobile : get().settings.maxBitrateWifi,
-    })
-  },
-
-  getPlayerOptions: () => {
-    return {
-      minBuffer: get().settings.minBuffer,
-      playBuffer: get().settings.minBuffer / 2,
-      maxBuffer: get().settings.maxBuffer,
-    }
   },
 })
 
@@ -602,37 +629,6 @@ export const getPlayerState = async (): Promise<State> => {
 
 export const getRepeatMode = async (): Promise<RepeatMode> => {
   return (await TrackPlayer.getRepeatMode()) || RepeatMode.Off
-}
-
-function shuffleTracks(tracks: TrackExt[], firstTrack?: number) {
-  if (tracks.length === 0) {
-    return { tracks, shuffleOrder: [] }
-  }
-
-  const trackIndexes = tracks.map((_t, i) => i)
-  let shuffleOrder: number[] = []
-
-  for (let i = trackIndexes.length; i--; i > 0) {
-    const randi = Math.floor(Math.random() * (i + 1))
-    shuffleOrder.push(trackIndexes.splice(randi, 1)[0])
-  }
-
-  if (firstTrack !== undefined) {
-    shuffleOrder.splice(shuffleOrder.indexOf(firstTrack), 1)
-    shuffleOrder = [firstTrack, ...shuffleOrder]
-  }
-
-  tracks = shuffleOrder.map(i => tracks[i])
-
-  return { tracks, shuffleOrder }
-}
-
-function unshuffleTracks(tracks: TrackExt[], shuffleOrder: number[]): TrackExt[] {
-  if (tracks.length === 0 || shuffleOrder.length === 0) {
-    return tracks
-  }
-
-  return shuffleOrder.map((_v, i) => tracks[shuffleOrder.indexOf(i)])
 }
 
 function shuffleQueue(queue: Song[], firstIdx?: number): { shuffled: Song[]; order: number[] } {

@@ -89,24 +89,6 @@ export const useIsPlaying = (contextId: string | undefined, track: number) => {
   return contextId === currentContextId && track === currentIdx
 }
 
-export function mapSongToTrackExt(song: Song): TrackExt {
-  return {
-    id: song.id,
-    idx: 0,
-    title: song.title,
-    artist: song.artist || 'Unknown Artist',
-    album: song.album || 'Unknown Album',
-    url: useStore.getState().buildStreamUri(song.id),
-    artwork: require('@res/fallback.png'),
-    userAgent,
-    duration: song.duration,
-    artistId: song.artistId,
-    albumId: song.albumId,
-    track: song.track,
-    discNumber: song.discNumber,
-  }
-}
-
 export const useSetQueue = (type: QueueType, songs?: Song[]) => {
   const createSession = useStore(store => store.createSession)
 
@@ -117,19 +99,19 @@ export const useSetQueue = (type: QueueType, songs?: Song[]) => {
       return
     }
 
-    const queue = songs.map(mapSongToTrackExt)
-    const first = queue[options.playTrack || 0]
+    // const queue = songs.map(mapSongToTrackExt)
+    // const first = queue[options.playTrack || 0]
 
-    if (!first.albumId) {
-      first.artwork = require('@res/fallback.png')
-    } else {
-      const albumCoverArt = queryClient.getQueryData<string>(qk.albumCoverArt(first.albumId))
-      const existingFile = queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', albumCoverArt))
-      const downloadFile = queryClient.getQueryData<string>(qk.coverArt(albumCoverArt, 'thumbnail'))
-      if (existingFile || downloadFile) {
-        first.artwork = `file://${existingFile || downloadFile}`
-      }
-    }
+    // if (!first.albumId) {
+    //   first.artwork = require('@res/fallback.png')
+    // } else {
+    //   const albumCoverArt = queryClient.getQueryData<string>(qk.albumCoverArt(first.albumId))
+    //   const existingFile = queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', albumCoverArt))
+    //   const downloadFile = queryClient.getQueryData<string>(qk.coverArt(albumCoverArt, 'thumbnail'))
+    //   if (existingFile || downloadFile) {
+    //     first.artwork = `file://${existingFile || downloadFile}`
+    //   }
+    // }
 
     await createSession({
       queue: songs,
