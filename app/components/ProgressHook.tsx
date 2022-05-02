@@ -1,22 +1,32 @@
 import { useStore } from '@app/state/store'
-import React, { useEffect } from 'react'
-import { State, useProgress } from 'react-native-track-player'
+import React, { useEffect, useState } from 'react'
+import { useProgress } from 'react-native-track-player'
 
 const ProgressHook = () => {
-  const playerState = useStore(store => store.session?.playerState)
+  const holdProgress = useStore(store => store.session?.holdProgress)
   const setProgress = useStore(store => store.setProgress)
-  const progress = useProgress(250)
+  const releaseProgressHold = useStore(store => store.releaseProgressHold)
+  const { buffered, duration, position } = useProgress(250)
+  const [pause, setPause] = useState(false)
 
   useEffect(() => {
-    if (playerState !== State.Playing) {
-      return
-    }
-    if (progress.buffered === 0 && progress.duration === 0 && progress.position === 0) {
+    if (holdProgress === undefined) {
       return
     }
 
-    setProgress(progress)
-  }, [setProgress, progress, playerState])
+    if (holdProgress && !pause) {
+      setPause(true)
+      setTimeout(() => {
+        releaseProgressHold()
+        setPause(false)
+      }, 501)
+      return
+    } else if (holdProgress || pause) {
+      return
+    }
+
+    setProgress({ buffered, duration, position })
+  }, [setProgress, buffered, duration, position, holdProgress, pause, releaseProgressHold])
 
   return <></>
 }

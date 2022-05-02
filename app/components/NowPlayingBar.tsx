@@ -1,6 +1,6 @@
 import CoverArt from '@app/components/CoverArt'
 import PressableOpacity from '@app/components/PressableOpacity'
-import { useStore } from '@app/state/store'
+import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
 import { useNavigation } from '@react-navigation/native'
@@ -10,18 +10,23 @@ import { State } from 'react-native-track-player'
 import IconFA5 from 'react-native-vector-icons/FontAwesome5'
 
 const ProgressBar = React.memo(() => {
-  const position = useStore(store => store.progress.position)
-  const duration = useStore(store => store.progress.duration)
+  const progress = useStoreDeep(store => store.session?.progress)
 
-  let progress = 0
+  if (!progress) {
+    return <></>
+  }
+
+  const { position, duration } = progress
+
+  let progressPercent = 0
   if (duration > 0) {
-    progress = position / duration
+    progressPercent = position / duration
   }
 
   return (
     <View style={progressStyles.container}>
-      <View style={[progressStyles.left, { flex: progress }]} />
-      <View style={[progressStyles.right, { flex: 1 - progress }]} />
+      <View style={[progressStyles.left, { flex: progressPercent }]} />
+      <View style={[progressStyles.right, { flex: 1 - progressPercent }]} />
     </View>
   )
 })

@@ -160,19 +160,20 @@ const infoStyles = StyleSheet.create({
 })
 
 const SeekBar = () => {
-  const position = useStore(store => store.progress.position)
-  const duration = useStore(store => store.progress.duration)
+  const progress = useStoreDeep(store => store.session?.progress)
+  const holdProgress = useStoreDeep(store => store.session?.holdProgress)
   const seekTo = useStore(store => store.seek)
   const [value, setValue] = useState(0)
+  const [slideToValue, setSlideToValue] = useState(0)
   const [sliding, setSliding] = useState(false)
 
   useEffect(() => {
-    if (sliding) {
+    if (sliding || progress?.position === undefined || holdProgress === true) {
       return
     }
 
-    setValue(position)
-  }, [position, sliding])
+    setValue(progress.position)
+  }, [holdProgress, progress?.position, sliding])
 
   const onSlidingStart = useCallback(() => {
     setSliding(true)
@@ -180,11 +181,20 @@ const SeekBar = () => {
 
   const onSlidingComplete = useCallback(
     async (val: number) => {
+      setValue(val)
       await seekTo(val)
       setSliding(false)
     },
     [seekTo],
   )
+
+  const onValueChange = useCallback((val: number) => {
+    setSlideToValue(val)
+  }, [])
+
+  if (!progress) {
+    return <></>
+  }
 
   return (
     <View style={seekStyles.container}>
@@ -194,15 +204,16 @@ const SeekBar = () => {
           minimumTrackTintColor="white"
           maximumTrackTintColor={colors.text.secondary}
           thumbTintColor="white"
-          maximumValue={duration}
+          maximumValue={progress.duration}
           value={value}
           onSlidingStart={onSlidingStart}
           onSlidingComplete={onSlidingComplete}
+          onValueChange={onValueChange}
         />
       </View>
       <View style={seekStyles.textContainer}>
-        <Text style={seekStyles.text}>{formatDuration(value)}</Text>
-        <Text style={seekStyles.text}>{formatDuration(duration)}</Text>
+        <Text style={seekStyles.text}>{formatDuration(sliding ? slideToValue : value)}</Text>
+        <Text style={seekStyles.text}>{formatDuration(progress.duration)}</Text>
       </View>
     </View>
   )

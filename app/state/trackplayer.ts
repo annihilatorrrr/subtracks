@@ -26,6 +26,7 @@ export type Session = {
   current: Song
   currentIdx: number
   progress: Progress
+  holdProgress: boolean
   contextId: string
   shuffleOrder?: number[]
   playerState: State
@@ -46,9 +47,6 @@ export type TrackPlayerSlice = {
   session?: Session
   createSession: (options: CreateSessionOptions) => Promise<void>
 
-  progress: Progress
-  setProgress: (progress: Progress) => void
-
   scrobbleTrack: (id: string) => Promise<void>
 
   netState: 'mobile' | 'wifi'
@@ -62,6 +60,8 @@ export type TrackPlayerSlice = {
 export const rntpCommands = new PromiseQueue(1)
 
 export type TrackPlayerServiceSlice = {
+  setProgress: (progress: Progress) => void
+
   onSession: () => Promise<void>
   onPlaybackTrackChanged: (nextTrack?: number, track?: number) => Promise<void>
   onPlaybackState: (state: State) => void
@@ -75,6 +75,7 @@ export type TrackPlayerServiceSlice = {
   previous: () => Promise<void>
   skip: (track: number) => Promise<void>
   seek: (position: number) => Promise<void>
+  releaseProgressHold: () => void
   toggleRepeatMode: () => Promise<void>
   toggleShuffle: () => Promise<void>
   reset: () => Promise<void>
@@ -101,6 +102,16 @@ function mapSongToTrackExt(song: Song, idx: number): TrackExt {
 }
 
 export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): TrackPlayerServiceSlice => ({
+  setProgress: progress => {
+    set(state => {
+      if (!state.session) {
+        return
+      }
+
+      state.session.progress = progress
+    })
+  },
+
   onSession: async () =>
     rntpCommands.enqueue(async () => {
       try {
@@ -284,8 +295,26 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
 
   seek: async position =>
     rntpCommands.enqueue(async () => {
+      set(state => {
+        if (!state.session) {
+          return
+        }
+
+        state.session.holdProgress = true
+        state.session.progress.position = position
+      })
       await TrackPlayer.seekTo(position)
     }),
+
+  releaseProgressHold: () => {
+    set(state => {
+      if (!state.session) {
+        return
+      }
+
+      state.session.holdProgress = false
+    })
+  },
 
   toggleRepeatMode: async () => {
     return rntpCommands.enqueue(async () => {
@@ -488,6 +517,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         type,
         contextId,
         progress: { position: 0, duration: 0, buffered: 0 },
+        holdProgress: false,
         playerState: State.None,
         repeatMode: RepeatMode.Off,
         duckPaused: false,
@@ -508,12 +538,6 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       QueueEvents.emit('session')
     })
   },
-
-  progress: { position: 0, duration: 0, buffered: 0 },
-  setProgress: progress =>
-    set(state => {
-      state.progress = progress
-    }),
 
   scrobbleTrack: async id => {
     const client = get().client
