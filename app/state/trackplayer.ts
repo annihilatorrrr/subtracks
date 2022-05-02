@@ -4,7 +4,6 @@ import { Progress, QueueType, TrackExt } from '@app/models/trackplayer'
 import QueueEvents from '@app/trackplayer/QueueEvents'
 import PromiseQueue from '@app/util/PromiseQueue'
 import userAgent from '@app/util/userAgent'
-import produce from 'immer'
 import TrackPlayer, { PlayerOptions, RepeatMode, State } from 'react-native-track-player'
 import { GetStore, SetStore, useStore } from './store'
 
@@ -247,7 +246,41 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       await TrackPlayer.skipToPrevious()
     }),
 
-  skip: async track => rntpCommands.enqueue(async () => {}),
+  skip: async track =>
+    rntpCommands.enqueue(async () => {
+      const session = get().session
+
+      if (!session || track === session.currentIdx) {
+        return
+      }
+
+      if (track === session.currentIdx + 1) {
+        await TrackPlayer.skipToNext()
+        return
+      }
+      if (track === session.currentIdx - 1) {
+        await TrackPlayer.skipToPrevious()
+        return
+      }
+
+      const { playerState } = session
+
+      set(state => {
+        if (!state.session) {
+          return
+        }
+
+        state.session.currentIdx = track
+        state.session.current = state.session.queue[state.session.currentIdx]
+      })
+
+      await TrackPlayer.reset()
+      await get()._syncQueue()
+
+      if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
+        await TrackPlayer.play()
+      }
+    }),
 
   seek: async position =>
     rntpCommands.enqueue(async () => {
