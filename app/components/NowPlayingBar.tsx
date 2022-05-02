@@ -1,6 +1,5 @@
 import CoverArt from '@app/components/CoverArt'
 import PressableOpacity from '@app/components/PressableOpacity'
-import { usePause, usePlay } from '@app/hooks/trackplayer'
 import { useStore } from '@app/state/store'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
@@ -41,9 +40,9 @@ const progressStyles = StyleSheet.create({
 })
 
 const Controls = React.memo(() => {
-  const state = useStore(store => store.playerState)
-  const play = usePlay()
-  const pause = usePause()
+  const state = useStore(store => store.session?.playerState)
+  const play = useStore(store => store.play)
+  const pause = useStore(store => store.pause)
 
   let playPauseIcon: string
   switch (state) {
@@ -78,15 +77,19 @@ const Controls = React.memo(() => {
 
 const NowPlayingBar = React.memo(() => {
   const navigation = useNavigation()
-  const currentTrackExists = useStore(store => !!store.currentTrack)
-  const albumId = useStore(store => store.currentTrack?.albumId)
-  const title = useStore(store => store.currentTrack?.title)
-  const artist = useStore(store => store.currentTrack?.artist)
+  const sessionExists = useStore(store => !!store.session)
+  const albumId = useStore(store => store.session?.current.albumId)
+  const title = useStore(store => store.session?.current.title)
+  const artist = useStore(store => store.session?.current.artist)
 
-  const displayStyle: ViewStyle = { display: currentTrackExists ? 'flex' : 'none' }
+  // const displayStyle: ViewStyle = { display: sessionExists ? 'flex' : 'none' }
+
+  if (!sessionExists) {
+    return <></>
+  }
 
   return (
-    <Pressable onPress={() => navigation.navigate('now-playing')} style={[styles.container, displayStyle]}>
+    <Pressable onPress={() => navigation.navigate('now-playing')} style={styles.container}>
       <ProgressBar />
       <View style={styles.subContainer}>
         <CoverArt

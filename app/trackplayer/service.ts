@@ -1,9 +1,8 @@
 import { fetchAlbum } from '@app/query/fetch/api'
 import { FetchExisingFileOptions, fetchExistingFile, fetchFile, FetchFileOptions } from '@app/query/fetch/file'
 import qk from '@app/query/queryKeys'
-import { getCurrentTrack, getPlayerState, trackPlayerCommands } from '@app/state/trackplayer'
+import { rntpCommands } from '@app/state/trackplayer'
 import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo'
-import equal from 'fast-deep-equal'
 import _ from 'lodash'
 import { unstable_batchedUpdates } from 'react-native'
 import TrackPlayer, { Event, State } from 'react-native-track-player'
@@ -12,45 +11,15 @@ import { useStore } from '../state/store'
 import { ReturnedPromiseResolvedType } from '../util/types'
 import QueueEvents from './QueueEvents'
 
-const reset = () => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().resetTrackPlayerState()
-  })
-}
-
-const setPlayerState = (state: State) => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().setPlayerState(state)
-  })
-}
-
-const setCurrentTrackIdx = (idx?: number) => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().setCurrentTrackIdx(idx)
-  })
-}
+// const reset = () => {
+//   unstable_batchedUpdates(() => {
+//     useStore.getState().resetTrackPlayerState()
+//   })
+// }
 
 const setNetState = (netState: 'mobile' | 'wifi') => {
   unstable_batchedUpdates(() => {
     useStore.getState().setNetState(netState)
-  })
-}
-
-const rebuildQueue = (forcePlay?: boolean) => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().rebuildQueue(forcePlay)
-  })
-}
-
-const updateQueue = () => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().updateQueue()
-  })
-}
-
-const setDuckPaused = (duckPaused: boolean) => {
-  unstable_batchedUpdates(() => {
-    useStore.getState().setDuckPaused(duckPaused)
   })
 }
 
@@ -120,14 +89,14 @@ async function getCoverArtThumb(coverArt: string) {
 let serviceCreated = false
 
 const createService = async () => {
-  useStore.subscribe(
-    state => state.currentTrack?.id,
-    (currentTrackId?: string) => {
-      if (currentTrackId) {
-        useStore.getState().scrobbleTrack(currentTrackId)
-      }
-    },
-  )
+  // useStore.subscribe(
+  //   state => state.currentTrack?.id,
+  //   (currentTrackId?: string) => {
+  //     if (currentTrackId) {
+  //       useStore.getState().scrobbleTrack(currentTrackId)
+  //     }
+  //   },
+  // )
 
   NetInfo.fetch().then(state => {
     setNetState(state.type === NetInfoStateType.cellular ? 'mobile' : 'wifi')
@@ -172,28 +141,17 @@ const createService = async () => {
     })
   })
 
-  TrackPlayer.addEventListener(Event.RemoteDuck, data => {
-    if (data.permanent) {
-      trackPlayerCommands.enqueue(TrackPlayer.stop)
-      return
-    }
-
-    if (data.paused) {
-      let state = useStore.getState().playerState
-      if (state === State.Playing || state === State.Buffering || state === State.Connecting) {
-        trackPlayerCommands.enqueue(TrackPlayer.pause)
-        setDuckPaused(true)
-      }
-    } else if (useStore.getState().duckPaused) {
-      trackPlayerCommands.enqueue(TrackPlayer.play)
-      setDuckPaused(false)
-    }
+  TrackPlayer.addEventListener(Event.RemoteDuck, event => {
+    console.log('RemoteDuck', event)
+    unstable_batchedUpdates(() => {
+      useStore.getState().onRemoteDuck(event.paused, event.permanent)
+    })
   })
 
   TrackPlayer.addEventListener(Event.PlaybackState, event => {
     console.log('PlaybackState', State[event.state])
-    trackPlayerCommands.enqueue(async () => {
-      setPlayerState(await getPlayerState())
+    unstable_batchedUpdates(() => {
+      useStore.getState().onPlaybackState(event.state)
     })
   })
 
@@ -201,7 +159,7 @@ const createService = async () => {
     console.log('PlaybackTrackChanged', event)
 
     unstable_batchedUpdates(() => {
-      useStore.getState().onTrackChanged(event.nextTrack, event.track)
+      useStore.getState().onPlaybackTrackChanged(event.nextTrack, event.track)
     })
     // useStore.getState().setProgress({ position: 0, duration: 0, buffered: 0 })
     // trackPlayerCommands.enqueue(async () => {
@@ -218,33 +176,32 @@ const createService = async () => {
       return
     }
 
-    unstable_batchedUpdates(() => {
-      useStore.getState().onQueueEnded()
-    })
-
     // trackPlayerCommands.enqueue(async () => {
     //   await TrackPlayer.stop()
     //   await TrackPlayer.skip(0)
     // })
   })
 
-  TrackPlayer.addEventListener(Event.PlaybackMetadataReceived, () => {
-    setCurrentTrackIdx(useStore.getState().currentTrackIdx)
-  })
+  // TrackPlayer.addEventListener(Event.PlaybackMetadataReceived, () => {
+  //   setCurrentTrackIdx(useStore.getState().currentTrackIdx)
+  // })
 
-  TrackPlayer.addEventListener(Event.RemoteSeek, data => {
-    trackPlayerCommands.enqueue(async () => {
-      await TrackPlayer.seekTo(data.position)
+  TrackPlayer.addEventListener(Event.RemoteSeek, event => {
+    unstable_batchedUpdates(() => {
+      useStore.getState().seek(event.position)
     })
   })
 
-  TrackPlayer.addEventListener(Event.PlaybackError, data => {
-    console.log('PlaybackQueueEnded', data)
-    const { code, message } = data as Record<string, string>
+  TrackPlayer.addEventListener(Event.PlaybackError, event => {
+    console.log('PlaybackError', event)
+
+    unstable_batchedUpdates(() => {
+      useStore.getState().onPlaybackError(event.code, event.message)
+    })
 
     // fix for ExoPlayer aborting playback while esimating content length
-    if (code === 'playback-source' && message.includes('416')) {
-      rebuildQueue(true)
+    if (event.code === 'playback-source' && event.message.includes('416')) {
+      // rebuildQueue(true)
     }
   })
 
@@ -254,77 +211,77 @@ const createService = async () => {
     })
   })
 
-  QueueEvents.addListener('set', async ({ queue }) => {
-    const contextId = useStore.getState().queueContextId
-    const throwIfQueueChanged = () => {
-      if (contextId !== useStore.getState().queueContextId) {
-        throw 'queue-changed'
-      }
-    }
+  // QueueEvents.addListener('set', async ({ queue }) => {
+  //   const contextId = useStore.getState().queueContextId
+  //   const throwIfQueueChanged = () => {
+  //     if (contextId !== useStore.getState().queueContextId) {
+  //       throw 'queue-changed'
+  //     }
+  //   }
 
-    const albumIds = _.uniq(queue.map(s => s.albumId)).filter((id): id is string => id !== undefined)
+  //   const albumIds = _.uniq(queue.map(s => s.albumId)).filter((id): id is string => id !== undefined)
 
-    const albumIdImagePath: { [albumId: string]: string | undefined } = {}
-    for (const albumId of albumIds) {
-      let coverArt = queryClient.getQueryData<string>(qk.albumCoverArt(albumId))
-      if (!coverArt) {
-        throwIfQueueChanged()
-        console.log('no cached coverArt for album', albumId, 'getting album...')
-        coverArt = (await getAlbum(albumId))?.album.coverArt
-        if (!coverArt) {
-          continue
-        }
-      }
+  //   const albumIdImagePath: { [albumId: string]: string | undefined } = {}
+  //   for (const albumId of albumIds) {
+  //     let coverArt = queryClient.getQueryData<string>(qk.albumCoverArt(albumId))
+  //     if (!coverArt) {
+  //       throwIfQueueChanged()
+  //       console.log('no cached coverArt for album', albumId, 'getting album...')
+  //       coverArt = (await getAlbum(albumId))?.album.coverArt
+  //       if (!coverArt) {
+  //         continue
+  //       }
+  //     }
 
-      let imagePath =
-        queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', coverArt)) ||
-        queryClient.getQueryData<string>(qk.coverArt(coverArt, 'thumbnail'))
-      if (!imagePath) {
-        throwIfQueueChanged()
-        console.log('no cached image for', coverArt, 'getting file...')
-        imagePath = (await getCoverArtThumbExisting(coverArt)) || (await getCoverArtThumb(coverArt))
-        if (!imagePath) {
-          continue
-        }
-      }
+  //     let imagePath =
+  //       queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', coverArt)) ||
+  //       queryClient.getQueryData<string>(qk.coverArt(coverArt, 'thumbnail'))
+  //     if (!imagePath) {
+  //       throwIfQueueChanged()
+  //       console.log('no cached image for', coverArt, 'getting file...')
+  //       imagePath = (await getCoverArtThumbExisting(coverArt)) || (await getCoverArtThumb(coverArt))
+  //       if (!imagePath) {
+  //         continue
+  //       }
+  //     }
 
-      albumIdImagePath[albumId] = imagePath
-    }
+  //     albumIdImagePath[albumId] = imagePath
+  //   }
 
-    for (let i = 0; i < queue.length; i++) {
-      const track = queue[i]
-      if (typeof track.artwork === 'string') {
-        continue
-      }
+  //   for (let i = 0; i < queue.length; i++) {
+  //     const track = queue[i]
+  //     if (typeof track.artwork === 'string') {
+  //       continue
+  //     }
 
-      if (!track.albumId) {
-        continue
-      }
+  //     if (!track.albumId) {
+  //       continue
+  //     }
 
-      let imagePath = albumIdImagePath[track.albumId]
-      if (!imagePath) {
-        continue
-      }
+  //     let imagePath = albumIdImagePath[track.albumId]
+  //     if (!imagePath) {
+  //       continue
+  //     }
 
-      try {
-        throwIfQueueChanged()
+  //     try {
+  //       throwIfQueueChanged()
 
-        let trackIdx = i
-        const shuffleOrder = useStore.getState().shuffleOrder
-        if (shuffleOrder) {
-          trackIdx = shuffleOrder.indexOf(i)
-        }
+  //       let trackIdx = i
+  //       const shuffleOrder = useStore.getState().shuffleOrder
+  //       if (shuffleOrder) {
+  //         trackIdx = shuffleOrder.indexOf(i)
+  //       }
 
-        await TrackPlayer.updateMetadataForTrack(trackIdx, { ...track, artwork: `file://${imagePath}` })
-      } catch {
-        break
-      }
-    }
+  //       await TrackPlayer.updateMetadataForTrack(trackIdx, { ...track, artwork: `file://${imagePath}` })
+  //     } catch {
+  //       break
+  //     }
+  //   }
 
-    await trackPlayerCommands.enqueue(async () => {
-      updateQueue()
-    })
-  })
+  //   await rntpCommands.enqueue(async () => {
+  //     updateQueue()
+  //   })
+  // })
 }
 
 module.exports = async function () {

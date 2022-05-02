@@ -3,7 +3,7 @@ import React, { useEffect } from 'react'
 import { State, useProgress } from 'react-native-track-player'
 
 const ProgressHook = () => {
-  const playerState = useStore(store => store.playerState)
+  const playerState = useStore(store => store.session?.playerState)
   const setProgress = useStore(store => store.setProgress)
   const progress = useProgress(250)
 

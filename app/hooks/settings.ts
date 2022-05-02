@@ -1,4 +1,3 @@
-import { useReset } from '@app/hooks/trackplayer'
 import { CacheItemTypeKey } from '@app/models/cache'
 import queryClient from '@app/query/queryClient'
 import { useStore, useStoreDeep } from '@app/state/store'
@@ -9,7 +8,7 @@ import qk from '@app/query/queryKeys'
 export const useSwitchActiveServer = () => {
   const activeServerId = useStore(store => store.settings.activeServerId)
   const setActiveServer = useStore(store => store.setActiveServer)
-  const resetPlayer = useReset()
+  const resetPlayer = useStore(store => store.reset)
 
   return async (id: string) => {
     if (id === activeServerId) {

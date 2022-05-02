@@ -10,7 +10,7 @@ import { MenuProvider } from 'react-native-popup-menu'
 import { QueryClientProvider } from 'react-query'
 
 const Debug = () => {
-  const currentTrackTitle = useStore(store => store.currentTrack?.title)
+  const currentTrackTitle = useStore(store => store.session?.current.title)
   console.log('currentTrackTitle', currentTrackTitle)
   return <></>
 }

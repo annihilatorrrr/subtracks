@@ -1,10 +1,9 @@
 import GradientFlatList from '@app/components/GradientFlatList'
 import ListItem from '@app/components/ListItem'
 import NowPlayingBar from '@app/components/NowPlayingBar'
-import { useSkipTo } from '@app/hooks/trackplayer'
 import { Song } from '@app/models/library'
 import { mapTrackExtToSong } from '@app/models/map'
-import { useStoreDeep } from '@app/state/store'
+import { useStore, useStoreDeep } from '@app/state/store'
 import React from 'react'
 import { StyleSheet, View } from 'react-native'
 
@@ -26,13 +25,17 @@ const SongRenderItem: React.FC<{
 )
 
 const NowPlayingQueue = React.memo<{}>(() => {
-  const queue = useStoreDeep(store => store.queue)
-  const skipTo = useSkipTo()
+  const queue = useStoreDeep(store => store.session?.queue)
+  const skipTo = useStore(store => store.skip)
+
+  if (!queue) {
+    return <></>
+  }
 
   return (
     <View style={styles.container}>
       <GradientFlatList
-        data={queue.map(mapTrackExtToSong).map((song, i) => ({ song, i, onPress: () => skipTo(i) }))}
+        data={queue.map((song, i) => ({ song, i, onPress: () => skipTo(i) }))}
         renderItem={SongRenderItem}
         keyExtractor={(item, i) => i.toString()}
         overScrollMode="never"
