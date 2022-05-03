@@ -20,6 +20,7 @@ import IconFA5 from 'react-native-vector-icons/FontAwesome5'
 import Icon from 'react-native-vector-icons/Ionicons'
 import IconMatCom from 'react-native-vector-icons/MaterialCommunityIcons'
 import { Song } from '@app/models/library'
+import { useQueryAlbumCoverArtPath } from '@app/hooks/query'
 
 const NowPlayingHeader = withSuspenseMemo<{
   song?: Song
@@ -395,6 +396,7 @@ type NowPlayingProps = NativeStackScreenProps<RootStackParamList, 'main'>
 
 const NowPlayingView: React.FC<NowPlayingProps> = ({ navigation }) => {
   const song = useStoreDeep(store => store.session?.current)
+  const { data } = useQueryAlbumCoverArtPath(song?.albumId, 'thumbnail')
 
   useEffect(() => {
     if (!song) {
@@ -402,8 +404,7 @@ const NowPlayingView: React.FC<NowPlayingProps> = ({ navigation }) => {
     }
   })
 
-  // const imagePath = typeof song?.artwork === 'string' ? song?.artwork.replace('file://', '') : undefined
-  const imagePath = undefined
+  const imagePath = typeof data === 'string' ? data.replace('file://', '') : undefined
 
   if (!song) {
     return <></>
