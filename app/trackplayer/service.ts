@@ -6,7 +6,7 @@ import QueueEvents from './QueueEvents'
 
 let serviceCreated = false
 
-const createService = async () => {
+const createService = () => {
   useStore.subscribe(
     state => state.session?.current.id,
     (currentId?: string) => {
@@ -58,14 +58,12 @@ const createService = async () => {
   })
 
   TrackPlayer.addEventListener(Event.RemoteDuck, event => {
-    console.log('RemoteDuck', event)
     unstable_batchedUpdates(() => {
       useStore.getState().onRemoteDuck(event.paused, event.permanent)
     })
   })
 
   TrackPlayer.addEventListener(Event.PlaybackState, event => {
-    console.log('PlaybackState', State[event.state])
     unstable_batchedUpdates(() => {
       useStore.getState().onPlaybackState(event.state)
     })
@@ -84,7 +82,6 @@ const createService = async () => {
   })
 
   TrackPlayer.addEventListener(Event.PlaybackError, event => {
-    console.log('PlaybackError', event)
     unstable_batchedUpdates(() => {
       useStore.getState().onPlaybackError(event.code, event.message)
     })
@@ -99,7 +96,7 @@ const createService = async () => {
 
 module.exports = async function () {
   if (!serviceCreated) {
-    createService()
     serviceCreated = true
+    createService()
   }
 }

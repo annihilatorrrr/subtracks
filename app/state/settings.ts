@@ -166,7 +166,7 @@ export const createSettingsSlice = (set: SetStore, get: GetStore): SettingsSlice
     })
 
     if (get().netState === 'wifi') {
-      // get().rebuildQueue()
+      get().rebuildQueue()
     }
   },
 
@@ -176,7 +176,7 @@ export const createSettingsSlice = (set: SetStore, get: GetStore): SettingsSlice
     })
 
     if (get().netState === 'mobile') {
-      // get().rebuildQueue()
+      get().rebuildQueue()
     }
   },
 
@@ -189,7 +189,7 @@ export const createSettingsSlice = (set: SetStore, get: GetStore): SettingsSlice
       state.settings.minBuffer = Math.max(1, Math.min(minBuffer, state.settings.maxBuffer / 2))
     })
 
-    // get().rebuildQueue()
+    get().rebuildQueue(true)
   },
 
   setMaxBuffer: maxBuffer => {
@@ -201,7 +201,7 @@ export const createSettingsSlice = (set: SetStore, get: GetStore): SettingsSlice
       state.settings.maxBuffer = Math.min(5 * 60, Math.max(maxBuffer, state.settings.minBuffer * 2))
     })
 
-    // get().rebuildQueue()
+    get().rebuildQueue(true)
   },
 
   pingServer: async server => {

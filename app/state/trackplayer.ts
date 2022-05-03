@@ -79,12 +79,13 @@ export type TrackPlayerSlice = {
   toggleRepeatMode: () => Promise<void>
   toggleShuffle: () => Promise<void>
   destroy: () => Promise<void>
+  rebuildQueue: (destroy?: boolean) => Promise<void>
+  _rebuildQueue: (playerState: State, position?: number, destroy?: boolean) => Promise<void>
 
   setProgress: (progress: Progress) => void
   releaseProgressHold: () => void
 
   _syncQueue: (rebuild?: boolean) => Promise<void>
-  _resetQueue: (playerState: State, position?: number) => Promise<void>
   _getPlayerOptions: () => PlayerOptions
   _buildStreamUri: (id: string) => string
   _mapSongs: (songs: { song: Song; idx: number }[]) => Promise<TrackExt[]>
@@ -109,14 +110,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
 
   createSession: async ({ queue, type, title, contextId, playIdx, shuffle }) => {
     if (queue.length === 0) {
-      return rntpCommands.enqueue(async () => {
-        set(state => {
-          state.session = undefined
-        })
-        try {
-          await TrackPlayer.destroy()
-        } catch {}
-      })
+      return get().destroy()
     }
 
     await rntpCommands.enqueue(async () => {
@@ -234,12 +228,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   onPlaybackError: async (code, message) => {
     // fix for ExoPlayer aborting playback while esimating content length
     if (code === 'playback-source' && message.includes('416')) {
-      const playerState = get().session?.playerState || State.None
-      const position = get().session?.progress.position
-
-      await rntpCommands.enqueue(async () => {
-        await get()._resetQueue(playerState, position)
-      })
+      await get().rebuildQueue()
     }
   },
 
@@ -287,17 +276,8 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       state.netState = netInfo.type === NetInfoStateType.cellular ? 'mobile' : 'wifi'
     })
 
-    const session = get().session
-    if (!session) {
-      return
-    }
-
-    const { progress, playerState } = session
-
     if (oldNetState !== get().netState) {
-      await rntpCommands.enqueue(async () => {
-        await get()._resetQueue(playerState, progress.position)
-      })
+      await get().rebuildQueue()
     }
   },
 
@@ -330,15 +310,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       await TrackPlayer.pause()
     }),
 
-  stop: async () =>
-    rntpCommands.enqueue(async () => {
-      try {
-        await TrackPlayer.destroy()
-      } catch {}
-      set(state => {
-        state.session = undefined
-      })
-    }),
+  stop: async () => get().destroy(),
 
   next: async () =>
     rntpCommands.enqueue(async () => {
@@ -392,13 +364,10 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         state.session.current = state.session.queue[state.session.currentIdx]
       })
 
-      await get()._resetQueue(playerState)
+      await get()._rebuildQueue(playerState)
     }),
 
-  seek: async position =>
-    rntpCommands.enqueue(async () => {
-      await get()._seek(position)
-    }),
+  seek: async position => rntpCommands.enqueue(async () => get()._seek(position)),
 
   _seek: async position => {
     set(state => {
@@ -488,21 +457,48 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
 
   destroy: async () =>
     rntpCommands.enqueue(async () => {
+      set(state => {
+        state.session = undefined
+        state._lockQueue = false
+      })
       try {
         await TrackPlayer.destroy()
       } catch {}
-      set(state => {
-        state.session = undefined
-      })
     }),
+
+  rebuildQueue: async (destroy = false) =>
+    rntpCommands.enqueue(async () => {
+      const session = get().session
+      if (!session) {
+        return
+      }
+
+      const { playerState, progress } = session
+
+      await get()._rebuildQueue(playerState, progress.position, destroy)
+    }),
+
+  _rebuildQueue: async (playerState, position, destroy) => {
+    if (destroy) {
+      await TrackPlayer.destroy()
+      await TrackPlayer.setupPlayer(get()._getPlayerOptions())
+    } else {
+      await TrackPlayer.reset()
+    }
+
+    await get()._syncQueue()
+
+    if (position !== undefined) {
+      await get()._seek(position)
+    }
+
+    if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
+      await TrackPlayer.play()
+    }
+  },
 
   _syncQueue: async (rebuild = false) => {
     const rntpQueue = await getRntpQueue()
-    if (rntpQueue.length > 3) {
-      console.log('queue has more than 3 items, is currently being modified')
-      return
-    }
-
     const rntpCurrentIdx = await getRntpCurrentTrack()
 
     const session = get().session
@@ -571,19 +567,6 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     set(state => {
       state._lockQueue = false
     })
-  },
-
-  _resetQueue: async (playerState, position) => {
-    await TrackPlayer.reset()
-    await get()._syncQueue()
-
-    if (position !== undefined) {
-      await get()._seek(position)
-    }
-
-    if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
-      await TrackPlayer.play()
-    }
   },
 
   _getPlayerOptions: () => {
