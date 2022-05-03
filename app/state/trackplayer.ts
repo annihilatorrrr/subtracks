@@ -31,7 +31,6 @@ export type Session = {
   contextId: string
   shuffleOrder?: number[]
   playerState: State
-  repeatMode: RepeatMode
   duckPaused: boolean
 }
 
@@ -46,8 +45,10 @@ export type CreateSessionOptions = {
 
 export type TrackPlayerSlice = {
   session?: Session
+  repeatMode: RepeatMode
   netState: 'mobile' | 'wifi'
-  lockQueue: boolean
+
+  _lockQueue: boolean
 
   createSession: (options: CreateSessionOptions) => Promise<void>
 
@@ -84,8 +85,10 @@ export type TrackPlayerSlice = {
 }
 
 export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
+  repeatMode: RepeatMode.Off,
   netState: 'mobile',
-  lockQueue: false,
+
+  _lockQueue: false,
 
   createSession: async ({ queue, type, title, contextId, playIdx, shuffle }) => {
     return rntpCommands.enqueue(async () => {
@@ -109,7 +112,6 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         progress: { position: 0, duration: 0, buffered: 0 },
         holdProgress: false,
         playerState: State.None,
-        repeatMode: RepeatMode.Off,
         duckPaused: false,
         currentIdx: playIdx || 0,
         current: queue[playIdx || 0],
@@ -151,7 +153,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     }),
 
   onPlaybackTrackChanged: async (nextTrack, track) => {
-    if (get().lockQueue) {
+    if (get()._lockQueue) {
       return
     }
 
@@ -185,10 +187,10 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         return
       }
 
-      const { queue, currentIdx, repeatMode } = session
+      const { queue, currentIdx } = session
 
       // nextTrack === 2 here makes this only happen on queue loop, not on initial play of first track
-      if (repeatMode === RepeatMode.Off && currentIdx === 0 && prevIdx === queue.length - 1 && nextTrack === 2) {
+      if (get().repeatMode === RepeatMode.Off && currentIdx === 0 && prevIdx === queue.length - 1 && nextTrack === 2) {
         await TrackPlayer.pause()
       }
 
@@ -329,9 +331,9 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         return
       }
 
-      const { currentIdx, repeatMode } = session
+      const { currentIdx } = session
 
-      if (currentIdx === 0 && repeatMode === RepeatMode.Off) {
+      if (currentIdx === 0 && get().repeatMode === RepeatMode.Off) {
         await TrackPlayer.seekTo(0)
         return
       }
@@ -399,15 +401,8 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
 
   toggleRepeatMode: async () => {
     return rntpCommands.enqueue(async () => {
-      const session = get().session
-      if (!session) {
-        return
-      }
-
-      const { repeatMode } = session
       let nextMode = RepeatMode.Off
-
-      switch (repeatMode) {
+      switch (get().repeatMode) {
         case RepeatMode.Off:
           nextMode = RepeatMode.Queue
           break
@@ -420,11 +415,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       }
 
       set(state => {
-        if (!state.session) {
-          return
-        }
-
-        state.session.repeatMode = nextMode
+        state.repeatMode = nextMode
       })
 
       console.log('RepeatMode', RepeatMode[nextMode])
@@ -498,7 +489,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       return
     }
 
-    const { queue, currentIdx, repeatMode } = session
+    const { queue, currentIdx } = session
 
     if (rntpQueue.length === 3 && rntpCurrentIdx === 1 && !rebuild) {
       console.log('queue is already synced, nothing to do')
@@ -507,21 +498,21 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     }
 
     const getNextIdx = () => {
-      if (repeatMode === RepeatMode.Track) {
+      if (get().repeatMode === RepeatMode.Track) {
         return currentIdx
       }
       return (currentIdx + 1) % queue.length
     }
 
     const getPrevIdx = () => {
-      if (repeatMode === RepeatMode.Track) {
+      if (get().repeatMode === RepeatMode.Track) {
         return currentIdx
       }
       return currentIdx === 0 ? queue.length - 1 : currentIdx - 1
     }
 
     set(state => {
-      state.lockQueue = true
+      state._lockQueue = true
     })
 
     console.log((await getRntpQueue()).map(t => t.title))
@@ -564,7 +555,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     console.log((await getRntpQueue()).map(t => t.title))
 
     set(state => {
-      state.lockQueue = false
+      state._lockQueue = false
     })
   },
 
