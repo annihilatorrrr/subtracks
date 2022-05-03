@@ -1,12 +1,8 @@
 import { EmitterSubscription, NativeEventEmitter } from 'react-native'
-import { TrackExt } from '@app/models/trackplayer'
 
 export interface IQueueEventEmitter extends NativeEventEmitter {
-  emit(eventType: 'session'): void
-  addListener(eventType: 'session', listener: () => void): EmitterSubscription
-
-  emit(eventType: 'set', event: { queue: TrackExt[] }): void
-  addListener(eventType: 'set', listener: (event: { queue: TrackExt[] }) => void): EmitterSubscription
+  emit(eventType: 'session-created'): void
+  addListener(eventType: 'session-created', listener: (event?: never) => void): EmitterSubscription
 }
 
 class QueueEventEmitter extends NativeEventEmitter {}

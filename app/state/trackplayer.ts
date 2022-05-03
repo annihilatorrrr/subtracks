@@ -1,10 +1,16 @@
 import { NoClientError } from '@app/models/error'
-import { Song } from '@app/models/library'
+import { Album, Song } from '@app/models/library'
 import { Progress, QueueType, TrackExt } from '@app/models/trackplayer'
+import { fetchAlbum } from '@app/query/fetch/api'
+import { FetchExisingFileOptions, fetchExistingFile, fetchFile, FetchFileOptions } from '@app/query/fetch/file'
+import queryClient from '@app/query/queryClient'
+import qk from '@app/query/queryKeys'
+import { SubsonicApiClient } from '@app/subsonic/api'
 import QueueEvents from '@app/trackplayer/QueueEvents'
 import PromiseQueue from '@app/util/PromiseQueue'
 import userAgent from '@app/util/userAgent'
 import { NetInfoState, NetInfoStateType } from '@react-native-community/netinfo'
+import _ from 'lodash'
 import TrackPlayer, { PlayerOptions, RepeatMode, State } from 'react-native-track-player'
 import { GetStore, SetStore } from './store'
 
@@ -52,7 +58,7 @@ export type TrackPlayerSlice = {
 
   createSession: (options: CreateSessionOptions) => Promise<void>
 
-  onSession: () => Promise<void>
+  onSessionCreated: () => Promise<void>
 
   onPlaybackTrackChanged: (nextTrack?: number, track?: number) => Promise<void>
   onPlaybackState: (state: State) => void
@@ -81,7 +87,13 @@ export type TrackPlayerSlice = {
   _resetQueue: (playerState: State, position?: number) => Promise<void>
   _getPlayerOptions: () => PlayerOptions
   _buildStreamUri: (id: string) => string
-  _mapSong: (song: Song, idx: number) => TrackExt
+  _mapSongs: (songs: { song: Song; idx: number }[]) => Promise<TrackExt[]>
+
+  _fetchQueueArtwork: () => Promise<void>
+  _getClient: () => SubsonicApiClient
+  _getAlbum: (id: string) => Promise<{ album: Album; songs?: Song[] } | undefined>
+  _getCoverArtThumb: (coverArt: string) => Promise<string | undefined>
+  _getCoverArtThumbExisting: (coverArt: string) => Promise<string | undefined>
 }
 
 export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
@@ -91,18 +103,21 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   _lockQueue: false,
 
   createSession: async ({ queue, type, title, contextId, playIdx, shuffle }) => {
-    return rntpCommands.enqueue(async () => {
-      const currentSession = get().session
-
-      shuffle = shuffle !== undefined ? shuffle : !!currentSession?.shuffleOrder
-
-      if (queue.length === 0) {
+    if (queue.length === 0) {
+      return rntpCommands.enqueue(async () => {
         set(state => {
           state.session = undefined
         })
-        QueueEvents.emit('session')
-        return
-      }
+        try {
+          await TrackPlayer.destroy()
+        } catch {}
+      })
+    }
+
+    await rntpCommands.enqueue(async () => {
+      const currentSession = get().session
+
+      shuffle = shuffle !== undefined ? shuffle : !!currentSession?.shuffleOrder
 
       const session: Session = {
         queue,
@@ -127,8 +142,16 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       set(state => {
         state.session = session
       })
-      QueueEvents.emit('session')
+
+      try {
+        await TrackPlayer.destroy()
+      } catch {}
+      await TrackPlayer.setupPlayer(get()._getPlayerOptions())
+      await get()._syncQueue()
+      await TrackPlayer.play()
     })
+
+    QueueEvents.emit('session-created')
   },
 
   setProgress: progress => {
@@ -141,16 +164,11 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     })
   },
 
-  onSession: async () =>
-    rntpCommands.enqueue(async () => {
-      try {
-        await TrackPlayer.destroy()
-      } catch {}
-      await TrackPlayer.setupPlayer(get()._getPlayerOptions())
-
-      await get()._syncQueue()
-      await TrackPlayer.play()
-    }),
+  onSessionCreated: async () => {
+    get()
+      ._fetchQueueArtwork()
+      .catch(() => {})
+  },
 
   onPlaybackTrackChanged: async (nextTrack, track) => {
     if (get()._lockQueue) {
@@ -522,33 +540,45 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       const nextIdx = getNextIdx()
       const prevIdx = getPrevIdx()
 
-      await TrackPlayer.add([get()._mapSong(queue[currentIdx], currentIdx), get()._mapSong(queue[nextIdx], nextIdx)])
-      await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
+      const tracks = await get()._mapSongs([
+        { song: queue[prevIdx], idx: prevIdx },
+        { song: queue[currentIdx], idx: currentIdx },
+        { song: queue[nextIdx], idx: nextIdx },
+      ])
+
+      await TrackPlayer.add([tracks[1], tracks[2]])
+      await TrackPlayer.add(tracks[0], 0)
     } else if (rntpQueue.length !== 3 || rntpCurrentIdx === undefined) {
       console.error('WHAT')
       console.log((await getRntpQueue()).map(t => t.title))
       throw new Error('this should not happen')
     } else if (rebuild) {
       console.log('rebuilding queue around current')
-      await TrackPlayer.updateMetadataForTrack(rntpCurrentIdx, get()._mapSong(queue[currentIdx], currentIdx))
+      const nextIdx = getNextIdx()
+      const prevIdx = getPrevIdx()
+
+      const tracks = await get()._mapSongs([
+        { song: queue[prevIdx], idx: prevIdx },
+        { song: queue[currentIdx], idx: currentIdx },
+        { song: queue[nextIdx], idx: nextIdx },
+      ])
+
+      await TrackPlayer.updateMetadataForTrack(rntpCurrentIdx, tracks[1])
 
       const toRemove = [0, 1, 2].filter(i => i !== rntpCurrentIdx)
       await TrackPlayer.remove(toRemove)
 
-      const nextIdx = getNextIdx()
-      const prevIdx = getPrevIdx()
-
-      await TrackPlayer.add(get()._mapSong(queue[nextIdx], nextIdx))
-      await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
+      await TrackPlayer.add(tracks[2])
+      await TrackPlayer.add(tracks[0], 0)
     } else if (rntpCurrentIdx === 2) {
       console.log('adding next track')
       const nextIdx = getNextIdx()
-      await TrackPlayer.add(get()._mapSong(queue[nextIdx], nextIdx))
+      await TrackPlayer.add(await get()._mapSongs([{ song: queue[nextIdx], idx: nextIdx }]))
       await TrackPlayer.remove(0)
     } else if (rntpCurrentIdx === 0) {
       console.log('adding prev track')
       const prevIdx = getPrevIdx()
-      await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
+      await TrackPlayer.add(await get()._mapSongs([{ song: queue[prevIdx], idx: prevIdx }]), 0)
       await TrackPlayer.remove(3)
     }
 
@@ -595,22 +625,135 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     })
   },
 
-  _mapSong(song: Song, idx: number): TrackExt {
-    return {
+  _mapSongs: async songs => {
+    const fallbackArt = require('@res/fallback.png')
+    const albumIds = _.uniq(songs.map(s => s.song.albumId)).filter((id): id is string => id !== undefined)
+
+    const albumIdArtwork: { [albumId: string]: string | number } = {}
+    for (const albumId of albumIds) {
+      albumIdArtwork[albumId] = fallbackArt
+
+      if (albumId) {
+        let coverArt = queryClient.getQueryData<string>(qk.albumCoverArt(albumId))
+        if (coverArt) {
+          let imagePath =
+            queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', coverArt)) ||
+            queryClient.getQueryData<string>(qk.coverArt(coverArt, 'thumbnail'))
+          if (imagePath) {
+            albumIdArtwork[albumId] = `file://${imagePath}`
+          }
+        }
+      }
+    }
+
+    return songs.map(({ song, idx }) => ({
       id: song.id,
       idx,
       title: song.title,
       artist: song.artist || 'Unknown Artist',
       album: song.album || 'Unknown Album',
       url: get()._buildStreamUri(song.id),
-      artwork: require('@res/fallback.png'),
+      artwork: song.albumId ? albumIdArtwork[song.albumId] : fallbackArt,
       userAgent,
       duration: song.duration,
       artistId: song.artistId,
       albumId: song.albumId,
       track: song.track,
       discNumber: song.discNumber,
+    }))
+  },
+
+  _fetchQueueArtwork: async () => {
+    const session = get().session
+    if (!session) {
+      return
     }
+
+    const { contextId, queue } = session
+
+    const throwIfQueueChanged = () => {
+      if (contextId !== get().session?.contextId) {
+        throw new Error('queue changed while fetching artwork')
+      }
+    }
+
+    const albumIds = _.uniq(queue.map(s => s.albumId)).filter((id): id is string => id !== undefined)
+
+    const albumIdImagePath: { [albumId: string]: string | undefined } = {}
+    for (const albumId of albumIds) {
+      let coverArt = queryClient.getQueryData<string>(qk.albumCoverArt(albumId))
+      if (!coverArt) {
+        throwIfQueueChanged()
+        console.log('no cached coverArt for album', albumId, 'getting album...')
+        coverArt = (await get()._getAlbum(albumId))?.album.coverArt
+        if (!coverArt) {
+          continue
+        }
+      }
+
+      let imagePath =
+        queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', coverArt)) ||
+        queryClient.getQueryData<string>(qk.coverArt(coverArt, 'thumbnail'))
+      if (!imagePath) {
+        throwIfQueueChanged()
+        console.log('no cached image for', coverArt, 'getting file...')
+        imagePath = (await get()._getCoverArtThumbExisting(coverArt)) || (await get()._getCoverArtThumb(coverArt))
+        if (!imagePath) {
+          continue
+        }
+      }
+
+      albumIdImagePath[albumId] = imagePath
+    }
+
+    await rntpCommands.enqueue(async () => {
+      await get()._syncQueue(true)
+    })
+  },
+
+  _getClient: () => {
+    const client = get().client
+    if (!client) {
+      throw new Error('no client!')
+    }
+
+    return client
+  },
+
+  _getAlbum: async id => {
+    try {
+      const res = await fetchAlbum(id, get()._getClient())
+      queryClient.setQueryData(qk.album(id), res)
+      return res
+    } catch {}
+  },
+
+  _getCoverArtThumbExisting: async coverArt => {
+    const serverId = get().settings.activeServerId
+    const options: FetchExisingFileOptions = { itemType: 'coverArtThumb', itemId: coverArt }
+
+    try {
+      const res = await fetchExistingFile(options, serverId)
+      queryClient.setQueryData(qk.existingFiles(options.itemType, options.itemId), res)
+      return res
+    } catch {}
+  },
+
+  _getCoverArtThumb: async coverArt => {
+    const serverId = get().settings.activeServerId
+    const fromUrl = get()._getClient().getCoverArtUri({ id: coverArt, size: '256' })
+    const options: FetchFileOptions = {
+      itemType: 'coverArtThumb',
+      itemId: coverArt,
+      fromUrl,
+      expectedContentType: 'image',
+    }
+
+    try {
+      const res = await fetchFile(options, serverId)
+      queryClient.setQueryData(qk.coverArt(coverArt, 'thumbnail'), res)
+      return res
+    } catch {}
   },
 })
 

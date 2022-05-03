@@ -1,82 +1,8 @@
-import { fetchAlbum } from '@app/query/fetch/api'
-import { FetchExisingFileOptions, fetchExistingFile, fetchFile, FetchFileOptions } from '@app/query/fetch/file'
-import qk from '@app/query/queryKeys'
 import NetInfo from '@react-native-community/netinfo'
 import { unstable_batchedUpdates } from 'react-native'
 import TrackPlayer, { Event, State } from 'react-native-track-player'
-import queryClient from '../query/queryClient'
 import { useStore } from '../state/store'
-import { ReturnedPromiseResolvedType } from '../util/types'
 import QueueEvents from './QueueEvents'
-
-// const reset = () => {
-//   unstable_batchedUpdates(() => {
-//     useStore.getState().resetTrackPlayerState()
-//   })
-// }
-
-const setQueryDataAlbum = (queryKey: any, data: ReturnedPromiseResolvedType<typeof fetchAlbum>) => {
-  unstable_batchedUpdates(() => {
-    queryClient.setQueryData(queryKey, data)
-  })
-}
-
-const setQueryDataExistingFiles = (queryKey: any, data: ReturnedPromiseResolvedType<typeof fetchExistingFile>) => {
-  unstable_batchedUpdates(() => {
-    queryClient.setQueryData(queryKey, data)
-  })
-}
-
-const setQueryDataCoverArt = (queryKey: any, data: ReturnedPromiseResolvedType<typeof fetchFile>) => {
-  unstable_batchedUpdates(() => {
-    queryClient.setQueryData(queryKey, data)
-  })
-}
-
-function getClient() {
-  const client = useStore.getState().client
-  if (!client) {
-    throw new Error('no client!')
-  }
-
-  return client
-}
-
-async function getAlbum(id: string) {
-  try {
-    const res = await fetchAlbum(id, getClient())
-    setQueryDataAlbum(qk.album(id), res)
-    return res
-  } catch {}
-}
-
-async function getCoverArtThumbExisting(coverArt: string) {
-  const serverId = useStore.getState().settings.activeServerId
-  const options: FetchExisingFileOptions = { itemType: 'coverArtThumb', itemId: coverArt }
-
-  try {
-    const res = await fetchExistingFile(options, serverId)
-    setQueryDataExistingFiles(qk.existingFiles(options.itemType, options.itemId), res)
-    return res
-  } catch {}
-}
-
-async function getCoverArtThumb(coverArt: string) {
-  const serverId = useStore.getState().settings.activeServerId
-  const fromUrl = getClient().getCoverArtUri({ id: coverArt, size: '256' })
-  const options: FetchFileOptions = {
-    itemType: 'coverArtThumb',
-    itemId: coverArt,
-    fromUrl,
-    expectedContentType: 'image',
-  }
-
-  try {
-    const res = await fetchFile(options, serverId)
-    setQueryDataCoverArt(qk.coverArt(coverArt, 'thumbnail'), res)
-    return res
-  } catch {}
-}
 
 let serviceCreated = false
 
@@ -164,83 +90,11 @@ const createService = async () => {
     })
   })
 
-  QueueEvents.addListener('session', () => {
+  QueueEvents.addListener('session-created', () => {
     unstable_batchedUpdates(() => {
-      useStore.getState().onSession()
+      useStore.getState().onSessionCreated()
     })
   })
-
-  // QueueEvents.addListener('set', async ({ queue }) => {
-  //   const contextId = useStore.getState().queueContextId
-  //   const throwIfQueueChanged = () => {
-  //     if (contextId !== useStore.getState().queueContextId) {
-  //       throw 'queue-changed'
-  //     }
-  //   }
-
-  //   const albumIds = _.uniq(queue.map(s => s.albumId)).filter((id): id is string => id !== undefined)
-
-  //   const albumIdImagePath: { [albumId: string]: string | undefined } = {}
-  //   for (const albumId of albumIds) {
-  //     let coverArt = queryClient.getQueryData<string>(qk.albumCoverArt(albumId))
-  //     if (!coverArt) {
-  //       throwIfQueueChanged()
-  //       console.log('no cached coverArt for album', albumId, 'getting album...')
-  //       coverArt = (await getAlbum(albumId))?.album.coverArt
-  //       if (!coverArt) {
-  //         continue
-  //       }
-  //     }
-
-  //     let imagePath =
-  //       queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', coverArt)) ||
-  //       queryClient.getQueryData<string>(qk.coverArt(coverArt, 'thumbnail'))
-  //     if (!imagePath) {
-  //       throwIfQueueChanged()
-  //       console.log('no cached image for', coverArt, 'getting file...')
-  //       imagePath = (await getCoverArtThumbExisting(coverArt)) || (await getCoverArtThumb(coverArt))
-  //       if (!imagePath) {
-  //         continue
-  //       }
-  //     }
-
-  //     albumIdImagePath[albumId] = imagePath
-  //   }
-
-  //   for (let i = 0; i < queue.length; i++) {
-  //     const track = queue[i]
-  //     if (typeof track.artwork === 'string') {
-  //       continue
-  //     }
-
-  //     if (!track.albumId) {
-  //       continue
-  //     }
-
-  //     let imagePath = albumIdImagePath[track.albumId]
-  //     if (!imagePath) {
-  //       continue
-  //     }
-
-  //     try {
-  //       throwIfQueueChanged()
-
-  //       let trackIdx = i
-  //       const shuffleOrder = useStore.getState().shuffleOrder
-  //       if (shuffleOrder) {
-  //         trackIdx = shuffleOrder.indexOf(i)
-  //       }
-
-  //       await TrackPlayer.updateMetadataForTrack(trackIdx, { ...track, artwork: `file://${imagePath}` })
-  //     } catch {
-  //       break
-  //     }
-  //   }
-
-  //   await rntpCommands.enqueue(async () => {
-  //     updateQueue()
-  //   })
-  // })
 }
 
 module.exports = async function () {
