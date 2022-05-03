@@ -8,7 +8,7 @@ import qk from '@app/query/queryKeys'
 export const useSwitchActiveServer = () => {
   const activeServerId = useStore(store => store.settings.activeServerId)
   const setActiveServer = useStore(store => store.setActiveServer)
-  const resetPlayer = useStore(store => store.reset)
+  const destroyPlayer = useStore(store => store.destroy)
 
   return async (id: string) => {
     if (id === activeServerId) {
@@ -16,7 +16,7 @@ export const useSwitchActiveServer = () => {
     }
 
     await queryClient.cancelQueries(undefined, { active: true })
-    await resetPlayer()
+    await destroyPlayer()
     queryClient.removeQueries()
     setActiveServer(id)
   }

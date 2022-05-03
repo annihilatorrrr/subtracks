@@ -6,7 +6,7 @@ import PromiseQueue from '@app/util/PromiseQueue'
 import userAgent from '@app/util/userAgent'
 import { NetInfoState, NetInfoStateType } from '@react-native-community/netinfo'
 import TrackPlayer, { PlayerOptions, RepeatMode, State } from 'react-native-track-player'
-import { GetStore, SetStore, useStore } from './store'
+import { GetStore, SetStore } from './store'
 
 export type SetQueueOptions = {
   title: string
@@ -45,14 +45,9 @@ export type CreateSessionOptions = {
 }
 
 export type TrackPlayerSlice = {
-  scrobbleTrack: (id: string) => Promise<void>
-}
-
-export const rntpCommands = new PromiseQueue(1)
-
-export type TrackPlayerServiceSlice = {
   session?: Session
   netState: 'mobile' | 'wifi'
+  lockQueue: boolean
 
   createSession: (options: CreateSessionOptions) => Promise<void>
 
@@ -64,6 +59,7 @@ export type TrackPlayerServiceSlice = {
   onRemoteDuck: (paused: boolean, permanent: boolean) => Promise<void>
 
   onNetInfo: (netState: NetInfoState) => Promise<void>
+  onSongChanged: (id?: string) => Promise<void>
 
   play: () => Promise<void>
   pause: () => Promise<void>
@@ -75,7 +71,7 @@ export type TrackPlayerServiceSlice = {
   _seek: (position: number) => Promise<void>
   toggleRepeatMode: () => Promise<void>
   toggleShuffle: () => Promise<void>
-  reset: () => Promise<void>
+  destroy: () => Promise<void>
 
   setProgress: (progress: Progress) => void
   releaseProgressHold: () => void
@@ -87,8 +83,9 @@ export type TrackPlayerServiceSlice = {
   _mapSong: (song: Song, idx: number) => TrackExt
 }
 
-export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): TrackPlayerServiceSlice => ({
+export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
   netState: 'mobile',
+  lockQueue: false,
 
   createSession: async ({ queue, type, title, contextId, playIdx, shuffle }) => {
     return rntpCommands.enqueue(async () => {
@@ -153,19 +150,26 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       await TrackPlayer.play()
     }),
 
-  onPlaybackTrackChanged: async (nextTrack, track) =>
-    rntpCommands.enqueue(async () => {
+  onPlaybackTrackChanged: async (nextTrack, track) => {
+    if (get().lockQueue) {
+      return
+    }
+
+    await rntpCommands.enqueue(async () => {
+      console.log('onPlaybackTrackChanged', { nextTrack, track })
       if (nextTrack === undefined || track === undefined) {
         return
       }
 
-      const rntpQueue = await getQueue()
+      const rntpQueue = await getRntpQueue()
       const rntpCurrentTrack = rntpQueue[nextTrack]
 
-      const prevIdx = get().session?.currentIdx
-      if (prevIdx === undefined) {
+      const prevSession = get().session
+      if (prevSession === undefined) {
         return
       }
+
+      const { currentIdx: prevIdx } = prevSession
 
       set(state => {
         if (!state.session) {
@@ -176,7 +180,7 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
         state.session.current = state.session.queue[rntpCurrentTrack.idx]
       })
 
-      const session = get().session
+      const session = get().session!
       if (!session) {
         return
       }
@@ -189,7 +193,8 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       }
 
       await get()._syncQueue()
-    }),
+    })
+  },
 
   onPlaybackState: playbackState => {
     set(state => {
@@ -262,6 +267,25 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
         await get()._resetQueue(playerState, progress.position)
       })
     }
+  },
+
+  onSongChanged: async id => {
+    if (!id) {
+      return
+    }
+
+    const client = get().client
+    if (!client) {
+      return
+    }
+
+    if (!get().settings.scrobble) {
+      return
+    }
+
+    try {
+      await client.scrobble({ id })
+    } catch {}
   },
 
   play: async () =>
@@ -338,19 +362,6 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
 
       await get()._resetQueue(playerState)
     }),
-
-  _resetQueue: async (playerState, position) => {
-    await TrackPlayer.reset()
-    await get()._syncQueue()
-
-    if (position !== undefined) {
-      await get()._seek(position)
-    }
-
-    if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
-      await TrackPlayer.play()
-    }
-  },
 
   seek: async position =>
     rntpCommands.enqueue(async () => {
@@ -451,11 +462,10 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
         })
       }
 
-      console.log(get().session!.queue.map(s => s.title))
       await get()._syncQueue(true)
     }),
 
-  reset: async () =>
+  destroy: async () =>
     rntpCommands.enqueue(async () => {
       try {
         await TrackPlayer.destroy()
@@ -468,13 +478,13 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
   _syncQueue: async rebuild => {
     rebuild = rebuild || false
 
-    const rntpQueue = await getQueue()
+    const rntpQueue = await getRntpQueue()
     if (rntpQueue.length > 3) {
       console.log('queue has more than 3 items, is currently being modified')
       return
     }
 
-    const rntpCurrentIdx = await getCurrentTrack()
+    const rntpCurrentIdx = await getRntpCurrentTrack()
 
     const session = get().session
     if (!session) {
@@ -485,7 +495,7 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
 
     if (rntpQueue.length === 3 && rntpCurrentIdx === 1 && !rebuild) {
       console.log('queue is already synced, nothing to do')
-      console.log((await getQueue()).map(t => t.title))
+      console.log((await getRntpQueue()).map(t => t.title))
       return
     }
 
@@ -503,6 +513,12 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
       return currentIdx === 0 ? queue.length - 1 : currentIdx - 1
     }
 
+    set(state => {
+      state.lockQueue = true
+    })
+
+    console.log((await getRntpQueue()).map(t => t.title))
+
     if (rntpQueue.length === 0 && rntpCurrentIdx === undefined) {
       console.log('adding initial tracks')
       const nextIdx = getNextIdx()
@@ -510,18 +526,14 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
 
       await TrackPlayer.add([get()._mapSong(queue[currentIdx], currentIdx), get()._mapSong(queue[nextIdx], nextIdx)])
       await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
-      console.log((await getQueue()).map(t => t.title))
-      return
-    }
-
-    if (rntpQueue.length !== 3 || rntpCurrentIdx === undefined) {
-      console.log((await getQueue()).map(t => t.title))
+    } else if (rntpQueue.length !== 3 || rntpCurrentIdx === undefined) {
+      console.error('WHAT')
+      console.log((await getRntpQueue()).map(t => t.title))
       throw new Error('this should not happen')
-    }
-
-    if (rebuild) {
+    } else if (rebuild) {
       console.log('rebuilding queue around current')
-      const currentTrack = rntpQueue[rntpCurrentIdx]
+      await TrackPlayer.updateMetadataForTrack(rntpCurrentIdx, get()._mapSong(queue[currentIdx], currentIdx))
+
       const toRemove = [0, 1, 2].filter(i => i !== rntpCurrentIdx)
       await TrackPlayer.remove(toRemove)
 
@@ -530,28 +542,35 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
 
       await TrackPlayer.add(get()._mapSong(queue[nextIdx], nextIdx))
       await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
-
-      await TrackPlayer.updateMetadataForTrack(rntpCurrentIdx, { ...currentTrack, idx: currentIdx } as TrackExt)
-      console.log((await getQueue()).map(t => t.title))
-      return
-    }
-
-    if (rntpCurrentIdx === 2) {
+    } else if (rntpCurrentIdx === 2) {
       console.log('adding next track')
       const nextIdx = getNextIdx()
       await TrackPlayer.add(get()._mapSong(queue[nextIdx], nextIdx))
       await TrackPlayer.remove(0)
-      console.log((await getQueue()).map(t => t.title))
-      return
-    }
-
-    if (rntpCurrentIdx === 0) {
+    } else if (rntpCurrentIdx === 0) {
       console.log('adding prev track')
       const prevIdx = getPrevIdx()
       await TrackPlayer.add(get()._mapSong(queue[prevIdx], prevIdx), 0)
       await TrackPlayer.remove(3)
-      console.log((await getQueue()).map(t => t.title))
-      return
+    }
+
+    console.log((await getRntpQueue()).map(t => t.title))
+
+    set(state => {
+      state.lockQueue = false
+    })
+  },
+
+  _resetQueue: async (playerState, position) => {
+    await TrackPlayer.reset()
+    await get()._syncQueue()
+
+    if (position !== undefined) {
+      await get()._seek(position)
+    }
+
+    if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
+      await TrackPlayer.play()
     }
   },
 
@@ -597,38 +616,15 @@ export const createTrackPlayerServiceSlice = (set: SetStore, get: GetStore): Tra
   },
 })
 
-export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
-  scrobbleTrack: async id => {
-    const client = get().client
-    if (!client) {
-      return
-    }
+export const rntpCommands = new PromiseQueue(1)
 
-    if (!get().settings.scrobble) {
-      return
-    }
-
-    try {
-      await client.scrobble({ id })
-    } catch {}
-  },
-})
-
-export const getQueue = async (): Promise<TrackExt[]> => {
+const getRntpQueue = async (): Promise<TrackExt[]> => {
   return ((await TrackPlayer.getQueue()) as TrackExt[]) || []
 }
 
-export const getCurrentTrack = async (): Promise<number | undefined> => {
+const getRntpCurrentTrack = async (): Promise<number | undefined> => {
   const current = await TrackPlayer.getCurrentTrack()
   return typeof current === 'number' ? current : undefined
-}
-
-export const getPlayerState = async (): Promise<State> => {
-  return (await TrackPlayer.getState()) || State.None
-}
-
-export const getRepeatMode = async (): Promise<RepeatMode> => {
-  return (await TrackPlayer.getRepeatMode()) || RepeatMode.Off
 }
 
 function shuffleQueue(queue: Song[], firstIdx?: number): { shuffled: Song[]; order: number[] } {

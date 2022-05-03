@@ -81,14 +81,14 @@ async function getCoverArtThumb(coverArt: string) {
 let serviceCreated = false
 
 const createService = async () => {
-  // useStore.subscribe(
-  //   state => state.currentTrack?.id,
-  //   (currentTrackId?: string) => {
-  //     if (currentTrackId) {
-  //       useStore.getState().scrobbleTrack(currentTrackId)
-  //     }
-  //   },
-  // )
+  useStore.subscribe(
+    state => state.session?.current.id,
+    (currentId?: string) => {
+      unstable_batchedUpdates(() => {
+        useStore.getState().onSongChanged(currentId)
+      })
+    },
+  )
 
   NetInfo.fetch().then(netInfo => {
     unstable_batchedUpdates(() => {
@@ -148,7 +148,7 @@ const createService = async () => {
   })
 
   TrackPlayer.addEventListener(Event.PlaybackTrackChanged, event => {
-    console.log('PlaybackTrackChanged', event)
+    // console.log('PlaybackTrackChanged', event)
 
     unstable_batchedUpdates(() => {
       useStore.getState().onPlaybackTrackChanged(event.nextTrack, event.track)

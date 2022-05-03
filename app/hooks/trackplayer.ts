@@ -1,11 +1,7 @@
 import { Song } from '@app/models/library'
-import { QueueType, TrackExt } from '@app/models/trackplayer'
-import queryClient from '@app/query/queryClient'
+import { QueueType } from '@app/models/trackplayer'
 import { useStore, useStoreDeep } from '@app/state/store'
-import { getQueue, SetQueueOptions, rntpCommands } from '@app/state/trackplayer'
-import userAgent from '@app/util/userAgent'
-import TrackPlayer from 'react-native-track-player'
-import qk from '@app/query/queryKeys'
+import { SetQueueOptions } from '@app/state/trackplayer'
 
 // export const usePlay = () => {
 //   return () => rntpCommands.enqueue(() => TrackPlayer.play())

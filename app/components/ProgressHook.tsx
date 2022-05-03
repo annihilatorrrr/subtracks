@@ -25,7 +25,11 @@ const ProgressHook = () => {
       return
     }
 
-    setProgress({ buffered, duration, position })
+    setProgress({
+      buffered: Math.max(0, buffered),
+      duration: Math.max(0, duration),
+      position: Math.max(0, position),
+    })
   }, [setProgress, buffered, duration, position, holdProgress, pause, releaseProgressHold])
 
   return <></>
