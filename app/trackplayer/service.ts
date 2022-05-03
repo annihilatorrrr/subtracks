@@ -103,8 +103,6 @@ const createService = async () => {
   })
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => {
-    // reset()
-    // trackPlayerCommands.enqueue(TrackPlayer.destroy)
     unstable_batchedUpdates(() => {
       useStore.getState().stop()
     })
@@ -148,35 +146,10 @@ const createService = async () => {
   })
 
   TrackPlayer.addEventListener(Event.PlaybackTrackChanged, event => {
-    // console.log('PlaybackTrackChanged', event)
-
     unstable_batchedUpdates(() => {
       useStore.getState().onPlaybackTrackChanged(event.nextTrack, event.track)
     })
-    // useStore.getState().setProgress({ position: 0, duration: 0, buffered: 0 })
-    // trackPlayerCommands.enqueue(async () => {
-    //   setCurrentTrackIdx(await getCurrentTrack())
-    // })
   })
-
-  TrackPlayer.addEventListener(Event.PlaybackQueueEnded, event => {
-    console.log('PlaybackQueueEnded', event)
-    const { position, track } = event
-
-    // bogus event that fires when queue is changed
-    if (!track && position === 0) {
-      return
-    }
-
-    // trackPlayerCommands.enqueue(async () => {
-    //   await TrackPlayer.stop()
-    //   await TrackPlayer.skip(0)
-    // })
-  })
-
-  // TrackPlayer.addEventListener(Event.PlaybackMetadataReceived, () => {
-  //   setCurrentTrackIdx(useStore.getState().currentTrackIdx)
-  // })
 
   TrackPlayer.addEventListener(Event.RemoteSeek, event => {
     unstable_batchedUpdates(() => {
@@ -186,15 +159,9 @@ const createService = async () => {
 
   TrackPlayer.addEventListener(Event.PlaybackError, event => {
     console.log('PlaybackError', event)
-
     unstable_batchedUpdates(() => {
       useStore.getState().onPlaybackError(event.code, event.message)
     })
-
-    // fix for ExoPlayer aborting playback while esimating content length
-    if (event.code === 'playback-source' && event.message.includes('416')) {
-      // rebuildQueue(true)
-    }
   })
 
   QueueEvents.addListener('session', () => {

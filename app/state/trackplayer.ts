@@ -206,10 +206,17 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     })
   },
 
-  onPlaybackError: async (code, message) =>
-    rntpCommands.enqueue(async () => {
-      return
-    }),
+  onPlaybackError: async (code, message) => {
+    // fix for ExoPlayer aborting playback while esimating content length
+    if (code === 'playback-source' && message.includes('416')) {
+      const playerState = get().session?.playerState || State.None
+      const position = get().session?.progress.position
+
+      await rntpCommands.enqueue(async () => {
+        await get()._resetQueue(playerState, position)
+      })
+    }
+  },
 
   onRemoteDuck: async (paused, permanent) =>
     rntpCommands.enqueue(async () => {
