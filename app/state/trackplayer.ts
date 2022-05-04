@@ -273,7 +273,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     const oldNetState = get().netState
 
     set(state => {
-      state.netState = netInfo.type === NetInfoStateType.cellular ? 'mobile' : 'wifi'
+      state.netState = getNetState(netInfo.type)
     })
 
     if (oldNetState !== get().netState) {
@@ -762,4 +762,16 @@ function shuffleQueue(queue: Song[], firstIdx?: number): { shuffled: Song[]; ord
 
 function unshuffleQueue(queue: Song[], shuffleOrder: number[]): Song[] {
   return shuffleOrder.map((_v, i) => queue[shuffleOrder.indexOf(i)])
+}
+
+function getNetState(netStateType: NetInfoStateType): 'mobile' | 'wifi' {
+  switch (netStateType) {
+    case NetInfoStateType.cellular:
+    case NetInfoStateType.none:
+    case NetInfoStateType.other:
+    case NetInfoStateType.unknown:
+      return 'mobile'
+    default:
+      return 'wifi'
+  }
 }

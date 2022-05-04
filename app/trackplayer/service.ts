@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo'
 import { unstable_batchedUpdates } from 'react-native'
-import TrackPlayer, { Event, State } from 'react-native-track-player'
+import TrackPlayer, { Event } from 'react-native-track-player'
 import { useStore } from '../state/store'
 import QueueEvents from './QueueEvents'
 
