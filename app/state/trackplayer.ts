@@ -79,8 +79,8 @@ export type TrackPlayerSlice = {
   toggleRepeatMode: () => Promise<void>
   toggleShuffle: () => Promise<void>
   destroy: () => Promise<void>
-  rebuildQueue: (destroy?: boolean) => Promise<void>
-  _rebuildQueue: (playerState: State, position?: number, destroy?: boolean) => Promise<void>
+  rebuildQueue: (destroy?: boolean, forcePlay?: boolean) => Promise<void>
+  _rebuildQueue: (playerState: State, position?: number, destroy?: boolean, forcePlay?: boolean) => Promise<void>
 
   setProgress: (progress: Progress) => void
   releaseProgressHold: () => void
@@ -228,7 +228,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   onPlaybackError: async (code, message) => {
     // fix for ExoPlayer aborting playback while esimating content length
     if (code === 'playback-source' && message.includes('416')) {
-      await get().rebuildQueue()
+      await get().rebuildQueue(false, true)
     }
   },
 
@@ -466,7 +466,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       } catch {}
     }),
 
-  rebuildQueue: async (destroy = false) =>
+  rebuildQueue: async (destroy = false, forcePlay = false) =>
     rntpCommands.enqueue(async () => {
       const session = get().session
       if (!session) {
@@ -475,10 +475,10 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
 
       const { playerState, progress } = session
 
-      await get()._rebuildQueue(playerState, progress.position, destroy)
+      await get()._rebuildQueue(playerState, progress.position, destroy, forcePlay)
     }),
 
-  _rebuildQueue: async (playerState, position, destroy) => {
+  _rebuildQueue: async (playerState, position, destroy, forcePlay) => {
     if (destroy) {
       await TrackPlayer.destroy()
       await TrackPlayer.setupPlayer(get()._getPlayerOptions())
@@ -492,7 +492,12 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       await get()._seek(position)
     }
 
-    if (playerState === State.Playing || playerState === State.Buffering || playerState === State.Connecting) {
+    if (
+      forcePlay ||
+      playerState === State.Playing ||
+      playerState === State.Buffering ||
+      playerState === State.Connecting
+    ) {
       await TrackPlayer.play()
     }
   },
