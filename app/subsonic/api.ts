@@ -1,5 +1,6 @@
 import { Server } from '@app/models/settings'
 import {
+  DownloadParams,
   GetAlbumList2Params,
   GetAlbumListParams,
   GetAlbumParams,
@@ -211,6 +212,10 @@ export class SubsonicApiClient {
 
   streamUri(params: StreamParams): string {
     return this.buildUrl('stream', params)
+  }
+
+  downloadUri(params: DownloadParams): string {
+    return this.buildUrl('download', params)
   }
 
   //

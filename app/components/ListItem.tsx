@@ -3,8 +3,8 @@ import { Album, Artist, ListableItem, Song } from '@app/models/library'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
 import { useNavigation } from '@react-navigation/native'
-import React, { useCallback } from 'react'
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native'
+import React, { useCallback, useState } from 'react'
+import { ActivityIndicator, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native'
 import IconFA5 from 'react-native-vector-icons/FontAwesome5'
 import IconMat from 'react-native-vector-icons/MaterialIcons'
 import { AlbumContextPressable, ArtistContextPressable, SongContextPressable } from './ContextMenu'
@@ -12,6 +12,10 @@ import CoverArt from './CoverArt'
 import PressableOpacity from './PressableOpacity'
 import { PressableStar } from './Star'
 import equal from 'fast-deep-equal/es6/react'
+import IconFA from 'react-native-vector-icons/FontAwesome'
+import { useQuerySongPath } from '@app/hooks/query'
+import * as Progress from 'react-native-progress'
+import { ProgressFunc } from '@app/query/fetch/file'
 
 const TitleTextSong = React.memo<{
   contextId?: string
@@ -57,6 +61,7 @@ const ListItem: React.FC<{
   disabled?: boolean
 }> = ({ item, contextId, queueId, onPress, showArt, showStar, subtitle, listStyle, style, disabled }) => {
   const navigation = useNavigation()
+  const { data: songPath, setEnableDownload, isFetching, progress } = useQuerySongPath(item.id)
 
   showStar = showStar === undefined ? true : showStar
   listStyle = listStyle || 'small'
@@ -178,13 +183,31 @@ const ListItem: React.FC<{
           {title}
           {subtitle !== undefined && (
             <View style={styles.textLine}>
-              {false && (
-                <IconMat
-                  name="file-download-done"
-                  size={17}
-                  color={colors.text.secondary}
-                  style={styles.downloadedIcon}
-                />
+              {isFetching &&
+                (progress !== undefined && progress > 0.01 ? (
+                  <View style={styles.subtitleIconWrapper}>
+                    <Progress.Pie
+                      size={13}
+                      borderWidth={1}
+                      style={styles.downloadedIcon}
+                      color={colors.text.secondary}
+                      progress={progress}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.subtitleIconWrapper}>
+                    <ActivityIndicator size={14} color={colors.text.secondary} style={styles.downloadActivity} />
+                  </View>
+                ))}
+              {songPath && (
+                <View style={styles.subtitleIconWrapper}>
+                  <IconMat
+                    name="file-download-done"
+                    size={15}
+                    color={colors.text.secondary}
+                    style={styles.downloadedIcon}
+                  />
+                </View>
               )}
               <Text style={styles.subtitle}>{subtitle}</Text>
             </View>
@@ -195,6 +218,9 @@ const ListItem: React.FC<{
         {showStar && item.itemType !== 'playlist' && (
           <PressableStar id={item.id} type={item.itemType} size={26} style={styles.controlItem} disabled={disabled} />
         )}
+        <PressableOpacity onPress={() => setEnableDownload(true)} style={styles.controlItem} disabled={disabled}>
+          <IconFA name="download" color={colors.text.secondary} size={26} />
+        </PressableOpacity>
       </View>
     </View>
   )
@@ -233,9 +259,23 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingBottom: 1,
   },
+  subtitleIconWrapper: {
+    flexDirection: 'row',
+    width: 17,
+    // justifyContent: 'center',
+    // alignContent: 'center',
+    // alignItems: 'center',
+  },
   downloadedIcon: {
-    marginRight: 2,
-    marginLeft: -3,
+    flex: 1,
+    // marginRight: 2,
+    // marginLeft: -3,
+    // width: 20,
+    // backgroundColor: 'green',
+  },
+  downloadActivity: {
+    flex: 1,
+    paddingRight: 4,
   },
   subtitle: {
     fontSize: 14,

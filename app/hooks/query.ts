@@ -1,4 +1,4 @@
-import { CacheImageSize, CacheItemTypeKey } from '@app/models/cache'
+import { CacheImageSize, CacheItemType, CacheItemTypeKey } from '@app/models/cache'
 import { Album, Artist, Playlist, Song, StarrableItemType } from '@app/models/library'
 import { CollectionById } from '@app/models/state'
 import queryClient from '@app/query/queryClient'
@@ -21,7 +21,8 @@ import {
   useFetchUnstar,
 } from '../query/fetch/api'
 import qk from '@app/query/queryKeys'
-import { useFetchExistingFile, useFetchFile } from '@app/query/fetch/file'
+import { ProgressFunc, useFetchExistingFile, useFetchFile } from '@app/query/fetch/file'
+import { useCallback, useState } from 'react'
 
 export const useQueryArtists = () => useQuery(qk.artists, useFetchArtists())
 
@@ -303,6 +304,52 @@ export const useQueryArtistArtPath = (artistId: string, size: CacheImageSize = '
   )
 
   return { ...query, data: existing.data || query.data, isExistingFetching: existing.isFetching }
+}
+
+export const useQuerySongPath = (id: string) => {
+  const fetchFile = useFetchFile()
+  const client = useStore(store => store.client)
+  const [enableDownload, setEnableDownload] = useState(false)
+  const [progress, setProgress] = useState<number | undefined>(undefined)
+
+  const progressFunc = useCallback(
+    (rec, tot) => {
+      const newProgress = tot > 0 ? rec / tot : 0
+      if (progress === undefined || newProgress > progress) {
+        console.log('id:', id, 'progress:', newProgress)
+        setProgress(newProgress)
+      }
+    },
+    [id, progress],
+  )
+
+  const itemType: CacheItemTypeKey = 'song'
+  const existing = useQueryExistingFile(itemType, id)
+
+  const query = useQuery(
+    qk.songPath(id),
+    async () => {
+      if (!client) {
+        return
+      }
+
+      const fromUrl = client.downloadUri({ id })
+      return await fetchFile({ itemType, itemId: id, fromUrl, expectedContentType: 'audio', progress: progressFunc })
+    },
+    {
+      enabled: existing.isFetched && !existing.data && !!client && enableDownload,
+      staleTime: Infinity,
+      cacheTime: Infinity,
+    },
+  )
+
+  return {
+    ...query,
+    data: existing.data || query.data,
+    isExistingFetching: existing.isFetching,
+    setEnableDownload,
+    progress,
+  }
 }
 
 export const useQueryAlbumCoverArtPath = (albumId?: string, size: CacheImageSize = 'thumbnail') => {

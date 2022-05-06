@@ -65,11 +65,13 @@ function assertMimeType(expected?: string, actual?: string) {
   }
 }
 
+export type ProgressFunc = (received: number, total: number) => void
+
 export type FetchFileOptions = FetchExisingFileOptions & {
   fromUrl: string
   useCacheBuster?: boolean
   expectedContentType?: string
-  progress?: (received: number, total: number) => void
+  progress?: ProgressFunc
 }
 
 export async function fetchFile(options: FetchFileOptions, serverId: string | undefined): Promise<string> {

@@ -1,3 +1,4 @@
+import { CacheItemTypeKey } from '@app/models/cache'
 import { NoClientError } from '@app/models/error'
 import { Album, Song } from '@app/models/library'
 import { Progress, QueueType, TrackExt } from '@app/models/trackplayer'
@@ -99,7 +100,7 @@ export type TrackPlayerSlice = {
   _getClient: () => SubsonicApiClient
   _getAlbum: (id: string) => Promise<{ album: Album; songs?: Song[] } | undefined>
   _getCoverArtThumb: (coverArt: string) => Promise<string | undefined>
-  _getCoverArtThumbExisting: (coverArt: string) => Promise<string | undefined>
+  _getExistingFile: (type: CacheItemTypeKey, id: string) => Promise<string | undefined>
 }
 
 export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlayerSlice => ({
@@ -600,14 +601,15 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   _mapSongs: async songs => {
     const fallbackArt = require('@res/fallback.png')
     const albumIdCoverArtPath = await get()._cacheCoverArtPaths(songs.map(s => s.song))
+    const songPaths = await Promise.all(songs.map(({ song }) => get()._getExistingFile('song', song.id)))
 
-    return songs.map(({ song, idx }) => ({
+    return songs.map(({ song, idx }, i) => ({
       id: song.id,
       idx,
       title: song.title,
       artist: song.artist || 'Unknown Artist',
       album: song.album || 'Unknown Album',
-      url: get()._buildStreamUri(song.id),
+      url: songPaths[i] ? `file://${songPaths[i]}` : get()._buildStreamUri(song.id),
       artwork:
         song.albumId && albumIdCoverArtPath[song.albumId] ? `file://${albumIdCoverArtPath[song.albumId]}` : fallbackArt,
       userAgent,
@@ -662,7 +664,8 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         throwIfQueueChanged()
 
         console.log('no cached image for', coverArt, 'getting file...')
-        imagePath = (await get()._getCoverArtThumbExisting(coverArt)) || (await get()._getCoverArtThumb(coverArt))
+        imagePath =
+          (await get()._getExistingFile('coverArtThumb', coverArt)) || (await get()._getCoverArtThumb(coverArt))
 
         if (!imagePath) {
           continue
@@ -705,17 +708,6 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     } catch {}
   },
 
-  _getCoverArtThumbExisting: async coverArt => {
-    const serverId = get().settings.activeServerId
-    const options: FetchExisingFileOptions = { itemType: 'coverArtThumb', itemId: coverArt }
-
-    try {
-      const res = await fetchExistingFile(options, serverId)
-      queryClient.setQueryData(qk.existingFiles(options.itemType, options.itemId), res)
-      return res
-    } catch {}
-  },
-
   _getCoverArtThumb: async coverArt => {
     const serverId = get().settings.activeServerId
     const fromUrl = get()._getClient().getCoverArtUri({ id: coverArt, size: '256' })
@@ -729,6 +721,17 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     try {
       const res = await fetchFile(options, serverId)
       queryClient.setQueryData(qk.coverArt(coverArt, 'thumbnail'), res)
+      return res
+    } catch {}
+  },
+
+  _getExistingFile: async (type, id) => {
+    const serverId = get().settings.activeServerId
+    const options: FetchExisingFileOptions = { itemType: type, itemId: id }
+
+    try {
+      const res = await fetchExistingFile(options, serverId)
+      queryClient.setQueryData(qk.existingFiles(options.itemType, options.itemId), res)
       return res
     } catch {}
   },

@@ -40,6 +40,11 @@ const qk = {
     size !== undefined && key.push(size)
     return key
   },
+  songPath: (id?: string) => {
+    const key: string[] = ['songPath']
+    id !== undefined && key.push(id)
+    return key
+  },
 
   existingFiles: (type?: CacheItemTypeKey, itemId?: string) => {
     const key: string[] = ['existingFiles']

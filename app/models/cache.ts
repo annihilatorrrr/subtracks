@@ -5,6 +5,7 @@ export enum CacheItemType {
   coverArtThumb = 'coverArtThumb',
   artistArt = 'artistArt',
   artistArtThumb = 'artistArtThumb',
+  song = 'song',
 }
 
 export type CacheItemTypeKey = keyof typeof CacheItemType

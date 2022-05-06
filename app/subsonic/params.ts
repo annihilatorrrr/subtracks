@@ -105,6 +105,10 @@ export type StreamParams = {
   estimateContentLength?: boolean
 }
 
+export type DownloadParams = {
+  id: string
+}
+
 //
 // Media annotation
 //
