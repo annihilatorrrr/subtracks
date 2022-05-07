@@ -6132,9 +6132,9 @@ react-is@^16.13.0, react-is@^16.13.1, react-is@^16.7.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
   integrity sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==
 
-"react-native-blob-util@https://github.com/austinried/react-native-blob-util.git#patch-1":
+"react-native-blob-util@https://github.com/austinried/react-native-blob-util.git#subtracks":
   version "0.16.0"
-  resolved "https://github.com/austinried/react-native-blob-util.git#458632d925de1c882a41fc62d7b5ef80bdf58ad1"
+  resolved "https://github.com/austinried/react-native-blob-util.git#7f2c43f54bb6d4d189b059af9186cba45969b68b"
   dependencies:
     base-64 "0.1.0"
     glob "^7.1.6"
