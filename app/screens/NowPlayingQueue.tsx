@@ -1,8 +1,9 @@
 import GradientFlatList from '@app/components/GradientFlatList'
-import ListItem from '@app/components/ListItem'
+import { SongListItem } from '@app/components/ListItem'
 import NowPlayingBar from '@app/components/NowPlayingBar'
 import { Song } from '@app/models/library'
 import { useStore, useStoreDeep } from '@app/state/store'
+import { listItemDefaultLayout } from '@app/styles/dimensions'
 import React from 'react'
 import { StyleSheet, View } from 'react-native'
 
@@ -13,13 +14,13 @@ const SongRenderItem: React.FC<{
     onPress: () => void
   }
 }> = ({ item }) => (
-  <ListItem
-    item={item.song}
+  <SongListItem
+    song={item.song}
     queueId={item.i}
     onPress={item.onPress}
     showArt={true}
     style={styles.listItem}
-    subtitle={`${item.song.artist} • ${item.song.album}`}
+    subtitle="artist-album"
   />
 )
 
@@ -40,6 +41,7 @@ const NowPlayingQueue = React.memo<{}>(() => {
         overScrollMode="never"
         windowSize={7}
         contentMarginTop={10}
+        getItemLayout={listItemDefaultLayout}
       />
       <NowPlayingBar />
     </View>

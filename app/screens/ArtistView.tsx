@@ -4,7 +4,7 @@ import GradientBackground from '@app/components/GradientBackground'
 import GradientScrollView from '@app/components/GradientScrollView'
 import Header from '@app/components/Header'
 import HeaderBar from '@app/components/HeaderBar'
-import ListItem from '@app/components/ListItem'
+import { SongListItem } from '@app/components/ListItem'
 import { withSuspenseMemo } from '@app/components/withSuspense'
 import { useQueryArtist, useQueryArtistTopSongs } from '@app/hooks/query'
 import { useSetQueue } from '@app/hooks/trackplayer'
@@ -56,13 +56,13 @@ const TopSongs = withSuspenseMemo<{
       <>
         <Header>{t('resources.song.lists.artistTopSongs')}</Header>
         {songs.slice(0, 5).map((s, i) => (
-          <ListItem
+          <SongListItem
             key={i}
-            item={s}
+            song={s}
             contextId={contextId}
             queueId={i}
             showArt={true}
-            subtitle={s.album}
+            subtitle="album"
             onPress={() => setQueue({ title: name, playTrack: i })}
           />
         ))}

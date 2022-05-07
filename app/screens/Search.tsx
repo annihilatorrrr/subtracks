@@ -1,7 +1,7 @@
 import Button from '@app/components/Button'
 import GradientScrollView from '@app/components/GradientScrollView'
 import Header from '@app/components/Header'
-import ListItem from '@app/components/ListItem'
+import { AlbumListItem, ArtistListItem, SongListItem } from '@app/components/ListItem'
 import NothingHere from '@app/components/NothingHere'
 import TextInput from '@app/components/TextInput'
 import { withSuspense, withSuspenseMemo } from '@app/components/withSuspense'
@@ -29,13 +29,14 @@ const SongItem = React.memo<{ item: Song }>(({ item }) => {
   const { setQueue, contextId } = useSetQueue('song', [item])
 
   return (
-    <ListItem
-      item={item}
+    <SongListItem
+      song={item}
       contextId={contextId}
       queueId={0}
       showArt={true}
       showStar={false}
       onPress={() => setQueue({ title: item.title, playTrack: 0 })}
+      subtitle="artist-album"
     />
   )
 }, equal)
@@ -44,9 +45,8 @@ const ResultsCategory = withSuspenseMemo<{
   name: string
   query: string
   items: (Artist | Album | Song)[]
-  type: 'artist' | 'album' | 'song'
 }>(
-  ({ name, query, type, items }) => {
+  ({ name, query, items }) => {
     const navigation = useNavigation()
     const { t } = useTranslation()
 
@@ -57,13 +57,16 @@ const ResultsCategory = withSuspenseMemo<{
     return (
       <>
         <Header>{name}</Header>
-        {items.map(a =>
-          type === 'song' ? (
-            <SongItem key={a.id} item={a as Song} />
-          ) : (
-            <ListItem key={a.id} item={a} showArt={true} showStar={false} />
-          ),
-        )}
+        {items.map(item => {
+          switch (item.itemType) {
+            case 'album':
+              return <AlbumListItem key={item.id} album={item} showArt={true} showStar={false} />
+            case 'artist':
+              return <ArtistListItem key={item.id} artist={item} showArt={true} showStar={false} />
+            default:
+              return <SongItem key={item.id} item={item} />
+          }
+        })}
         {items.length === 5 && (
           <Button
             title={t('search.moreResults')}
@@ -88,24 +91,9 @@ const Results = withSuspenseMemo<{
 
     return (
       <>
-        <ResultsCategory
-          name={t('resources.artist.name', { count: 2 })}
-          query={query}
-          type={'artist'}
-          items={results.artists}
-        />
-        <ResultsCategory
-          name={t('resources.album.name', { count: 2 })}
-          query={query}
-          type={'album'}
-          items={results.albums}
-        />
-        <ResultsCategory
-          name={t('resources.song.name', { count: 2 })}
-          query={query}
-          type={'song'}
-          items={results.songs}
-        />
+        <ResultsCategory name={t('resources.artist.name', { count: 2 })} query={query} items={results.artists} />
+        <ResultsCategory name={t('resources.album.name', { count: 2 })} query={query} items={results.albums} />
+        <ResultsCategory name={t('resources.song.name', { count: 2 })} query={query} items={results.songs} />
       </>
     )
   },

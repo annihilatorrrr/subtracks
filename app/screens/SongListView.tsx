@@ -1,14 +1,15 @@
 import CoverArt from '@app/components/CoverArt'
 import GradientBackground from '@app/components/GradientBackground'
-import HeaderBar from '@app/components/HeaderBar'
 import GradientImageFlatList from '@app/components/GradientImageFlatList'
-import ListItem from '@app/components/ListItem'
+import HeaderBar from '@app/components/HeaderBar'
+import { SongListItem } from '@app/components/ListItem'
 import ListPlayerControls from '@app/components/ListPlayerControls'
 import NothingHere from '@app/components/NothingHere'
 import { useQueryAlbum, useQueryCoverArtPath, useQueryPlaylist } from '@app/hooks/query'
 import { useSetQueue } from '@app/hooks/trackplayer'
 import { Album, Playlist, Song } from '@app/models/library'
 import colors from '@app/styles/colors'
+import { listItemDefaultLayout } from '@app/styles/dimensions'
 import font from '@app/styles/font'
 import equal from 'fast-deep-equal/es6/react'
 import React, { useState } from 'react'
@@ -26,22 +27,20 @@ const SongRenderItem: React.FC<{
   item: {
     song: Song
     contextId?: string
-    queueId?: number
+    queueId: number
     subtitle?: string
     onPress?: () => void
     showArt?: boolean
-    disabled?: boolean
   }
 }> = ({ item }) => (
-  <ListItem
-    item={item.song}
+  <SongListItem
+    song={item.song}
     contextId={item.contextId}
     queueId={item.queueId}
-    subtitle={item.subtitle}
+    subtitle="artist"
     onPress={item.onPress}
     showArt={item.showArt}
     style={styles.listItem}
-    disabled={item.disabled}
   />
 )
 
@@ -94,7 +93,6 @@ const SongListDetails = React.memo<{
           subtitle: s.artist,
           onPress: play(i),
           showArt: songList.itemType === 'playlist',
-          disabled: disabled,
         }))}
         renderItem={SongRenderItem}
         keyExtractor={(item, i) => i.toString()}
@@ -103,6 +101,7 @@ const SongListDetails = React.memo<{
           style: styles.container,
           onGetColor: setHeaderColor,
         }}
+        getItemLayout={listItemDefaultLayout}
         overScrollMode="never"
         windowSize={7}
         contentMarginTop={26}
@@ -223,7 +222,7 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   listItem: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
   },
   nothing: {
     width: '100%',

@@ -22,20 +22,22 @@ type BaseProps = {
   fadeDuration?: number
 }
 
-type ArtistCoverArtProps = BaseProps & {
+export type ArtistImageProps = BaseProps & {
   type: 'artist'
   artistId: string
 }
 
-type CoverArtProps = BaseProps & {
+export type CoverArtImageProps = BaseProps & {
   type: 'cover'
   coverArt?: string
 }
 
-type AlbumIdProps = BaseProps & {
+export type AlbumIdImageProps = BaseProps & {
   type: 'album'
   albumId?: string
 }
+
+export type CoverArtProps = CoverArtImageProps | ArtistImageProps | AlbumIdImageProps
 
 type ImageSourceProps = BaseProps & {
   data?: string
@@ -75,25 +77,25 @@ const ImageSource = React.memo<ImageSourceProps>(
   },
 )
 
-const ArtistImage = React.memo<ArtistCoverArtProps>(props => {
+const ArtistImage = React.memo<ArtistImageProps>(props => {
   const { data, isFetching, isExistingFetching } = useQueryArtistArtPath(props.artistId, props.size)
 
   return <ImageSource data={data} isFetching={isFetching} isExistingFetching={isExistingFetching} {...props} />
 })
 
-const CoverArtImage = React.memo<CoverArtProps>(props => {
+const CoverArtImage = React.memo<CoverArtImageProps>(props => {
   const { data, isFetching, isExistingFetching } = useQueryCoverArtPath(props.coverArt, props.size)
 
   return <ImageSource data={data} isFetching={isFetching} isExistingFetching={isExistingFetching} {...props} />
 })
 
-const AlbumIdIamge = React.memo<AlbumIdProps>(props => {
+const AlbumIdIamge = React.memo<AlbumIdImageProps>(props => {
   const { data, isFetching, isExistingFetching } = useQueryAlbumCoverArtPath(props.albumId, props.size)
 
   return <ImageSource data={data} isFetching={isFetching} isExistingFetching={isExistingFetching} {...props} />
 })
 
-const CoverArt = React.memo<CoverArtProps | ArtistCoverArtProps | AlbumIdProps>(props => {
+const CoverArt = React.memo<CoverArtProps>(props => {
   const viewStyles = [props.style]
   if (props.round) {
     viewStyles.push(styles.round)
@@ -102,13 +104,13 @@ const CoverArt = React.memo<CoverArtProps | ArtistCoverArtProps | AlbumIdProps>(
   let imageComponent
   switch (props.type) {
     case 'artist':
-      imageComponent = <ArtistImage {...(props as ArtistCoverArtProps)} />
+      imageComponent = <ArtistImage {...(props as ArtistImageProps)} />
       break
     case 'album':
-      imageComponent = <AlbumIdIamge {...(props as AlbumIdProps)} />
+      imageComponent = <AlbumIdIamge {...(props as AlbumIdImageProps)} />
       break
     default:
-      imageComponent = <CoverArtImage {...(props as CoverArtProps)} />
+      imageComponent = <CoverArtImage {...(props as CoverArtImageProps)} />
       break
   }
 

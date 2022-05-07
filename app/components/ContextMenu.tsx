@@ -164,16 +164,8 @@ const MenuHeader = React.memo<{
     <View style={styles.menuHeader}>
       {CoverArtComponent}
       <View style={styles.menuHeaderText}>
-        <Text numberOfLines={1} style={styles.menuTitle}>
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text numberOfLines={1} style={styles.menuSubtitle}>
-            {subtitle}
-          </Text>
-        ) : (
-          <></>
-        )}
+        <Text style={styles.menuTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.menuSubtitle}>{subtitle}</Text> : <></>}
       </View>
     </View>
   )
@@ -358,7 +350,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   coverArt: {
     width: 42,

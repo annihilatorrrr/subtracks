@@ -1,17 +1,18 @@
 import FilterButton from '@app/components/FilterButton'
 import GradientFlatList from '@app/components/GradientFlatList'
-import ListItem from '@app/components/ListItem'
+import { ArtistListItem } from '@app/components/ListItem'
 import { withSuspenseMemo } from '@app/components/withSuspense'
 import { useQueryArtists } from '@app/hooks/query'
 import { Artist } from '@app/models/library'
 import { ArtistFilterType } from '@app/models/settings'
 import { useStore, useStoreDeep } from '@app/state/store'
+import { listItemBig, listItemBigLayout } from '@app/styles/dimensions'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, View } from 'react-native'
 
 const ArtistRenderItem: React.FC<{ item: Artist }> = ({ item }) => (
-  <ListItem item={item} showArt={true} showStar={false} listStyle="big" style={styles.listItem} />
+  <ArtistListItem artist={item} showArt={true} showStar={false} size={listItemBig.size} style={styles.listItem} />
 )
 
 const filterValues: ArtistFilterType[] = [
@@ -75,6 +76,7 @@ const ArtistsList = () => {
         overScrollMode="never"
         windowSize={3}
         contentMarginTop={6}
+        getItemLayout={listItemBigLayout}
       />
       <ArtistFilterButton />
     </View>
@@ -87,6 +89,7 @@ const styles = StyleSheet.create({
   },
   listItem: {
     paddingHorizontal: 10,
+    marginBottom: listItemBig.marginBottom,
   },
 })
 

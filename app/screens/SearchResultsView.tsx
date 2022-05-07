@@ -1,53 +1,44 @@
 import GradientFlatList from '@app/components/GradientFlatList'
-import ListItem from '@app/components/ListItem'
+import { AlbumListItem, ArtistListItem, SongListItem } from '@app/components/ListItem'
 import { withSuspense } from '@app/components/withSuspense'
 import { useQuerySearchResults } from '@app/hooks/query'
 import { useSetQueue } from '@app/hooks/trackplayer'
 import { Album, Artist, Song } from '@app/models/library'
+import { listItemDefaultLayout } from '@app/styles/dimensions'
 import { Search3Params } from '@app/subsonic/params'
 import { useNavigation } from '@react-navigation/native'
+import equal from 'fast-deep-equal/es6/react'
 import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet } from 'react-native'
 
 type SearchListItemType = Album | Song | Artist
 
-const SongResultsListItem: React.FC<{ item: Song }> = ({ item }) => {
+const SongResultsListItem = React.memo<{ item: Song }>(({ item }) => {
   const { setQueue, contextId } = useSetQueue('song', [item])
 
   return (
-    <ListItem
-      item={item}
+    <SongListItem
+      song={item}
       contextId={contextId}
       queueId={0}
       showArt={true}
       showStar={false}
-      listStyle="small"
       onPress={() => setQueue({ title: item.title, playTrack: 0 })}
       style={styles.listItem}
+      subtitle="artist-album"
     />
   )
-}
-
-const OtherResultsListItem: React.FC<{ item: SearchListItemType }> = ({ item }) => {
-  return (
-    <ListItem
-      item={item}
-      contextId={item.id}
-      queueId={0}
-      showArt={true}
-      showStar={false}
-      listStyle="small"
-      style={styles.listItem}
-    />
-  )
-}
+}, equal)
 
 const ResultsListItem: React.FC<{ item: SearchListItemType }> = ({ item }) => {
-  if (item.itemType === 'song') {
-    return <SongResultsListItem item={item} />
-  } else {
-    return <OtherResultsListItem item={item} />
+  switch (item.itemType) {
+    case 'song':
+      return <SongResultsListItem item={item} />
+    case 'album':
+      return <AlbumListItem album={item} showArt={true} showStar={false} style={styles.listItem} />
+    default:
+      return <ArtistListItem artist={item} showArt={true} showStar={false} style={styles.listItem} />
   }
 }
 
@@ -102,6 +93,7 @@ const SearchResultsView = withSuspense<{
       onEndReachedThreshold={2}
       contentMarginTop={6}
       windowSize={5}
+      getItemLayout={listItemDefaultLayout}
     />
   )
 })
