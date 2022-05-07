@@ -242,7 +242,7 @@ const ItemText = React.memo<{
 }>(({ title, subtitle }) => (
   <ItemTextWrapper>
     <ItemTextTitle title={title} />
-    {subtitle && (
+    {!!subtitle && (
       <ItemTextLineWrapper>
         <ItemTextSubtitle subtitle={subtitle} />
       </ItemTextLineWrapper>
@@ -436,7 +436,7 @@ export const SongListItem = React.memo<ListItemProps & SongProps>(props => {
                   <ActivityIndicator size={14} color={colors.text.secondary} style={styles.downloadActivity} />
                 </ItemTextLineIconWrapper>
               ))}
-            {songPath && (
+            {!!songPath && (
               <ItemTextLineIconWrapper>
                 <IconMat
                   name="file-download-done"
