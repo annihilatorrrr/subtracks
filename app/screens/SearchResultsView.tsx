@@ -1,10 +1,9 @@
 import GradientFlatList from '@app/components/GradientFlatList'
-import { AlbumListItem, ArtistListItem, SongListItem } from '@app/components/ListItem'
+import { AlbumListItem, ArtistListItem, LIST_ITEM_SMALL, SongListItem } from '@app/components/ListItem'
 import { withSuspense } from '@app/components/withSuspense'
 import { useQuerySearchResults } from '@app/hooks/query'
 import { useSetQueue } from '@app/hooks/trackplayer'
 import { Album, Artist, Song } from '@app/models/library'
-import { listItemDefaultLayout } from '@app/styles/dimensions'
 import { Search3Params } from '@app/subsonic/params'
 import { useNavigation } from '@react-navigation/native'
 import equal from 'fast-deep-equal/es6/react'
@@ -93,7 +92,7 @@ const SearchResultsView = withSuspense<{
       onEndReachedThreshold={2}
       contentMarginTop={6}
       windowSize={5}
-      getItemLayout={listItemDefaultLayout}
+      getItemLayout={LIST_ITEM_SMALL.getItemLayout}
     />
   )
 })

@@ -2,14 +2,13 @@ import CoverArt from '@app/components/CoverArt'
 import GradientBackground from '@app/components/GradientBackground'
 import GradientImageFlatList from '@app/components/GradientImageFlatList'
 import HeaderBar from '@app/components/HeaderBar'
-import { SongListItem } from '@app/components/ListItem'
+import { LIST_ITEM_SMALL, SongListItem } from '@app/components/ListItem'
 import ListPlayerControls from '@app/components/ListPlayerControls'
 import NothingHere from '@app/components/NothingHere'
 import { useQueryAlbum, useQueryCoverArtPath, useQueryPlaylist } from '@app/hooks/query'
 import { useSetQueue } from '@app/hooks/trackplayer'
 import { Album, Playlist, Song } from '@app/models/library'
 import colors from '@app/styles/colors'
-import { listItemDefaultLayout } from '@app/styles/dimensions'
 import font from '@app/styles/font'
 import equal from 'fast-deep-equal/es6/react'
 import React, { useState } from 'react'
@@ -101,7 +100,7 @@ const SongListDetails = React.memo<{
           style: styles.container,
           onGetColor: setHeaderColor,
         }}
-        getItemLayout={listItemDefaultLayout}
+        getItemLayout={LIST_ITEM_SMALL.getItemLayout}
         overScrollMode="never"
         windowSize={7}
         contentMarginTop={26}
