@@ -7,11 +7,13 @@ import migrations from './migrations'
 import { createTrackPlayerSlice, TrackPlayerSlice } from './trackplayer'
 import produce, { Draft } from 'immer'
 import { WritableDraft } from 'immer/dist/internal'
+import { createDownloadSlice, DownloadSlice } from './download'
 
 const DB_VERSION = migrations.length
 
 export type Store = SettingsSlice &
-  TrackPlayerSlice & {
+  TrackPlayerSlice &
+  DownloadSlice & {
     hydrated: boolean
     setHydrated: (hydrated: boolean) => void
   }
@@ -58,6 +60,7 @@ export const useStore = create<
       immer((set, get) => ({
         ...createSettingsSlice(set, get),
         ...createTrackPlayerSlice(set, get),
+        ...createDownloadSlice(set, get),
 
         hydrated: false,
         setHydrated: hydrated =>

@@ -1,5 +1,5 @@
 import useClient from '@app/hooks/useClient'
-import { Album, Playlist, Song } from '@app/models/library'
+import { AlbumSongs, ArtistAlbums, ArtistInfo, PlaylistSongs, Song } from '@app/models/library'
 import { mapAlbum, mapArtist, mapArtistInfo, mapPlaylist, mapSong } from '@app/models/map'
 import queryClient from '@app/query/queryClient'
 import qk from '@app/query/queryKeys'
@@ -27,31 +27,33 @@ export const useFetchArtists = () => {
   }
 }
 
+export async function fetchArtist(id: string, client: SubsonicApiClient): Promise<ArtistAlbums> {
+  const res = await client.getArtist({ id })
+
+  cacheStarredData(res.data.artist)
+  res.data.albums.forEach(cacheStarredData)
+
+  res.data.albums.forEach(cacheAlbumCoverArtData)
+
+  return {
+    artist: mapArtist(res.data.artist),
+    albums: res.data.albums.map(mapAlbum),
+  }
+}
+
 export const useFetchArtist = () => {
   const client = useClient()
+  return async (id: string) => fetchArtist(id, client())
+}
 
-  return async (id: string) => {
-    const res = await client().getArtist({ id })
-
-    cacheStarredData(res.data.artist)
-    res.data.albums.forEach(cacheStarredData)
-
-    res.data.albums.forEach(cacheAlbumCoverArtData)
-
-    return {
-      artist: mapArtist(res.data.artist),
-      albums: res.data.albums.map(mapAlbum),
-    }
-  }
+export async function fetchArtistInfo(id: string, client: SubsonicApiClient): Promise<ArtistInfo> {
+  const res = await client.getArtistInfo2({ id })
+  return mapArtistInfo(id, res.data.artistInfo)
 }
 
 export const useFetchArtistInfo = () => {
   const client = useClient()
-
-  return async (id: string) => {
-    const res = await client().getArtistInfo2({ id })
-    return mapArtistInfo(id, res.data.artistInfo)
-  }
+  return async (id: string) => fetchArtistInfo(id, client())
 }
 
 export const useFetchArtistTopSongs = () => {
@@ -75,22 +77,23 @@ export const useFetchPlaylists = () => {
   }
 }
 
-export const useFetchPlaylist = () => {
-  const client = useClient()
+export async function fetchPlaylist(id: string, client: SubsonicApiClient): Promise<PlaylistSongs> {
+  const res = await client.getPlaylist({ id })
 
-  return async (id: string): Promise<{ playlist: Playlist; songs?: Song[] }> => {
-    const res = await client().getPlaylist({ id })
+  res.data.playlist.songs.forEach(cacheStarredData)
 
-    res.data.playlist.songs.forEach(cacheStarredData)
-
-    return {
-      playlist: mapPlaylist(res.data.playlist),
-      songs: res.data.playlist.songs.map(mapSong),
-    }
+  return {
+    playlist: mapPlaylist(res.data.playlist),
+    songs: res.data.playlist.songs.map(mapSong),
   }
 }
 
-export async function fetchAlbum(id: string, client: SubsonicApiClient): Promise<{ album: Album; songs?: Song[] }> {
+export const useFetchPlaylist = () => {
+  const client = useClient()
+  return async (id: string) => fetchPlaylist(id, client())
+}
+
+export async function fetchAlbum(id: string, client: SubsonicApiClient): Promise<AlbumSongs> {
   const res = await client.getAlbum({ id })
 
   cacheStarredData(res.data.album)
@@ -123,16 +126,17 @@ export const useFetchAlbumList = () => {
   }
 }
 
+export async function fetchSong(id: string, client: SubsonicApiClient): Promise<Song> {
+  const res = await client.getSong({ id })
+
+  cacheStarredData(res.data.song)
+
+  return mapSong(res.data.song)
+}
+
 export const useFetchSong = () => {
   const client = useClient()
-
-  return async (id: string) => {
-    const res = await client().getSong({ id })
-
-    cacheStarredData(res.data.song)
-
-    return mapSong(res.data.song)
-  }
+  return async (id: string) => fetchSong(id, client())
 }
 
 export const useFetchSearchResults = () => {

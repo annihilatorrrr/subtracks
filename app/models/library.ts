@@ -6,6 +6,11 @@ export interface Artist {
   coverArt?: string
 }
 
+export interface ArtistAlbums {
+  artist: Artist
+  albums: Album[]
+}
+
 export interface ArtistInfo {
   id: string
   smallImageUrl?: string
@@ -23,12 +28,22 @@ export interface Album {
   year?: number
 }
 
+export interface AlbumSongs {
+  album: Album
+  songs: Song[]
+}
+
 export interface Playlist {
   itemType: 'playlist'
   id: string
   name: string
   comment?: string
   coverArt?: string
+}
+
+export interface PlaylistSongs {
+  playlist: Playlist
+  songs: Song[]
 }
 
 export interface Song {

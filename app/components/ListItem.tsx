@@ -1,13 +1,14 @@
-import { useQuerySongPath } from '@app/hooks/query'
 import { useIsPlaying } from '@app/hooks/trackplayer'
 import { Album, Artist, Playlist, Song, StarrableItemType } from '@app/models/library'
+import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
 import { useNavigation } from '@react-navigation/native'
 import equal from 'fast-deep-equal/es6/react'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatListProps, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native'
 import * as Progress from 'react-native-progress'
+import IconFA from 'react-native-vector-icons/FontAwesome'
 import IconFA5 from 'react-native-vector-icons/FontAwesome5'
 import IconMat from 'react-native-vector-icons/MaterialIcons'
 import { AlbumContextPressable, ArtistContextPressable, SongContextPressable } from './ContextMenu'
@@ -235,9 +236,45 @@ export const PlaylistListItem = React.memo<Omit<ListItemProps, 'showStar'> & Pla
   )
 }, equal)
 
+const useSongDownload = (id: string) => {
+  const download = useStore(store => () => store.downloadSong(id))
+  const serverId = useStore(store => store.settings.activeServerId)
+  const job = useStoreDeep(store => (serverId ? store.downloads[serverId]?.pending.byId[id] : undefined))
+  const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
+  const isFetching = useStore(store => {
+    if (!serverId) {
+      return false
+    }
+
+    const downloads = store.downloads[serverId]
+    if (!downloads) {
+      return false
+    }
+
+    if (downloads.pending.allIds.length > 0) {
+      return downloads.pending.allIds[0] === id
+    }
+    return false
+  })
+  const [progress, setProgress] = useState<number | undefined>(undefined)
+
+  useEffect(() => {
+    if (job?.received === undefined || job?.total === undefined) {
+      return
+    }
+
+    const newProgress = job.total > 0 ? job.received / job.total : 0
+    if (progress === undefined || newProgress > progress) {
+      setProgress(newProgress)
+    }
+  }, [id, job?.received, job?.total, progress])
+
+  return { download, progress, isFetching, songPath }
+}
+
 export const SongListItem = React.memo<ListItemProps & SongProps>(props => {
   const { song, contextId, queueId, onPress, showArt, showStar, size, style, subtitle } = useDefaultProps(props)
-  const { data: songPath, setEnableDownload, isFetching, progress } = useQuerySongPath(song.id)
+  const { songPath, download, isFetching, progress } = useSongDownload(song.id)
 
   let subtitleText = song.artist || song.album || song.title
   if ((subtitle === 'album' || subtitle === 'artist') && song[subtitle]) {
@@ -284,12 +321,11 @@ export const SongListItem = React.memo<ListItemProps & SongProps>(props => {
         </ItemTextWrapper>
       </SongItemPressable>
       {showStar && <ItemControls id={song.id} type="song" />}
-      {/* <View style={styles.controls}>
-        {showStar && <PressableStar id={song.id} type="song" size={26} style={styles.controlItem} />}
-        <PressableOpacity onPress={() => setEnableDownload(true)} style={styles.controlItem}>
+      <View style={styles.controls}>
+        <PressableOpacity onPress={() => download()} style={styles.controlItem}>
           <IconFA name="download" color={colors.text.secondary} size={26} />
         </PressableOpacity>
-      </View> */}
+      </View>
     </ItemWrapper>
   )
 }, equal)
