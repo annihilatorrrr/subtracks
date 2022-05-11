@@ -1,4 +1,4 @@
-import { CacheImageSize, CacheItemType, CacheItemTypeKey } from '@app/models/cache'
+import { CacheImageSize, CacheItemTypeKey } from '@app/models/cache'
 import { Album, Artist, Playlist, Song, StarrableItemType } from '@app/models/library'
 import { CollectionById } from '@app/models/state'
 import queryClient from '@app/query/queryClient'
@@ -21,7 +21,7 @@ import {
   useFetchUnstar,
 } from '../query/fetch/api'
 import qk from '@app/query/queryKeys'
-import { ProgressFunc, useFetchExistingFile, useFetchFile } from '@app/query/fetch/file'
+import { useFetchExistingFile, useFetchFile } from '@app/query/fetch/file'
 import { useCallback, useState } from 'react'
 
 export const useQueryArtists = () => useQuery(qk.artists, useFetchArtists())
@@ -91,7 +91,7 @@ export const useQueryPlaylist = (id: string, placeholderPlaylist?: Playlist) => 
   const query = useQuery(qk.playlist(id), () => fetchPlaylist(id), {
     placeholderData: () => {
       if (placeholderPlaylist) {
-        return { playlist: placeholderPlaylist }
+        return { playlist: placeholderPlaylist } as any
       }
 
       const playlist = queryClient.getQueryData<CollectionById<Playlist>>(qk.playlists)?.byId[id]

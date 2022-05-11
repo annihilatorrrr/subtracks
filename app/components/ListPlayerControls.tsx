@@ -1,12 +1,55 @@
 import Button from '@app/components/Button'
 import { Song } from '@app/models/library'
+import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native'
+import { ActivityIndicator, StyleProp, StyleSheet, View, ViewStyle } from 'react-native'
 import Icon from 'react-native-vector-icons/Ionicons'
 import IconMat from 'react-native-vector-icons/MaterialIcons'
 import { withSuspenseMemo } from './withSuspense'
+
+const useSongListDownload = (ids: string[]) => {
+  const download = useStore(store => () => ids.forEach(id => store.downloadSong(id)))
+  const serverId = useStore(store => store.settings.activeServerId)
+  const jobs = useStoreDeep(store => {
+    if (!serverId) {
+      return
+    }
+
+    return ids.map(id => store.downloads[serverId]?.pending.byId[id])
+  })
+  const isDownloaded = useStore(store => {
+    if (!serverId) {
+      return false
+    }
+
+    const downloads = store.downloads[serverId]
+    if (!downloads) {
+      return false
+    }
+
+    return ids.every(id => id in downloads.songs)
+  })
+  const isFetching = useStore(store => {
+    if (!serverId) {
+      return false
+    }
+
+    const downloads = store.downloads[serverId]
+    if (!downloads) {
+      return false
+    }
+
+    if (downloads.pending.allIds.length > 0) {
+      return ids.some(id => id === downloads.pending.allIds[0])
+    }
+    return false
+  })
+  const isPending = jobs !== undefined && jobs.some(j => j !== undefined)
+
+  return { download, isFetching, isPending, isDownloaded }
+}
 
 const ListPlayerControls = withSuspenseMemo<{
   songs: Song[]
@@ -15,19 +58,21 @@ const ListPlayerControls = withSuspenseMemo<{
   play: () => void
   shuffle: () => void
   disabled?: boolean
-}>(({ listType, style, play, shuffle, disabled }) => {
-  const [downloaded, setDownloaded] = useState(false)
+}>(({ songs, listType, style, play, shuffle, disabled }) => {
+  const { download, isPending, isDownloaded } = useSongListDownload(songs.map(s => s.id))
   const { t } = useTranslation()
 
   return (
     <View style={[styles.controls, style]}>
       <View style={styles.controlsSide}>
         <Button
-          disabled={true}
-          buttonStyle={downloaded ? 'highlight' : 'hollow'}
-          onPress={() => setDownloaded(!downloaded)}>
-          {downloaded ? (
+          disabled={disabled || isPending}
+          buttonStyle={isDownloaded ? 'hollow' : undefined}
+          onPress={() => download()}>
+          {isDownloaded ? (
             <IconMat name="file-download-done" size={26} color={colors.text.primary} />
+          ) : isPending ? (
+            <ActivityIndicator size={26} color={colors.text.primary} />
           ) : (
             <IconMat name="file-download" size={26} color={colors.text.primary} />
           )}

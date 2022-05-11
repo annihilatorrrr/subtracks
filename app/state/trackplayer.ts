@@ -143,9 +143,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         state.session = session
       })
 
-      try {
-        await TrackPlayer.destroy()
-      } catch {}
+      await TrackPlayer.destroy()
       await TrackPlayer.setupPlayer(get()._getPlayerOptions())
       await get()._syncQueue()
       await TrackPlayer.play()
@@ -217,6 +215,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   },
 
   onPlaybackState: playbackState => {
+    console.log('state:', State[playbackState])
     set(state => {
       if (!state.session) {
         return
