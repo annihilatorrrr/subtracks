@@ -122,15 +122,15 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
       state.downloads[serverId].pending.byId[id] = { ...job }
     })
 
-    if (!song.albumId || !song.artistId) {
-      throw new Error('song missing artistId or albumId')
+    if (!song.albumId) {
+      throw new Error('song missing albumId')
     }
 
     // fetch album & artist & artistInfo
     const [album, artist, artistInfo] = await Promise.all([
       get()._fetchAlbum(song.albumId, serverId, client),
-      get()._fetchArtist(song.artistId, serverId, client),
-      get()._fetchArtistInfo(song.artistId, serverId, client),
+      song.artistId ? get()._fetchArtist(song.artistId, serverId, client) : Promise.resolve(undefined),
+      song.artistId ? get()._fetchArtistInfo(song.artistId, serverId, client) : Promise.resolve(undefined),
     ])
 
     job.album = album
@@ -147,10 +147,10 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     await Promise.all([
       get()._cacheCoverArt(coverArt, 'thumbnail', serverId, client),
       get()._cacheCoverArt(coverArt, 'original', serverId, client),
-      artistSmallUrl
+      artist && artistSmallUrl
         ? get()._cacheArtistArt(artist.artist.id, 'thumbnail', artistSmallUrl, serverId)
         : Promise.resolve(undefined),
-      artistLargeUrl
+      artist && artistLargeUrl
         ? get()._cacheArtistArt(artist.artist.id, 'original', artistLargeUrl, serverId)
         : Promise.resolve(undefined),
     ])
@@ -177,8 +177,14 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     set(state => {
       state.downloads[serverId].songs[id] = { ...song, path }
       state.downloads[serverId].albums[album.album.id] = album
-      state.downloads[serverId].artists[artist.artist.id] = artist
-      state.downloads[serverId].artistsInfo[artist.artist.id] = artistInfo
+
+      if (artist) {
+        state.downloads[serverId].artists[artist.artist.id] = artist
+      }
+
+      if (artistInfo) {
+        state.downloads[serverId].artistsInfo[artistInfo.id] = artistInfo
+      }
 
       if (playlist) {
         state.downloads[serverId].playlists[playlist.playlist.id] = playlist

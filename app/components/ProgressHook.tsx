@@ -6,7 +6,7 @@ const ProgressHook = () => {
   const holdProgress = useStore(store => store.session?.holdProgress)
   const setProgress = useStore(store => store.setProgress)
   const releaseProgressHold = useStore(store => store.releaseProgressHold)
-  const { buffered, duration, position } = useProgress(250)
+  const { buffered, duration, position } = useProgress(__DEV__ ? 3000 : 250)
   const [pause, setPause] = useState(false)
 
   useEffect(() => {

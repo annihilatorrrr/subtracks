@@ -200,7 +200,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         state.session.current = state.session.queue[rntpCurrentTrack.idx]
       })
 
-      const session = get().session!
+      const session = get().session
       if (!session) {
         return
       }
@@ -601,7 +601,10 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   _mapSongs: async songs => {
     const fallbackArt = require('@res/fallback.png')
     const albumIdCoverArtPath = await get()._cacheCoverArtPaths(songs.map(s => s.song))
-    const songPaths = await Promise.all(songs.map(({ song }) => get()._getExistingFile('song', song.id)))
+    // const songPaths = await Promise.all(songs.map(({ song }) => get()._getExistingFile('song', song.id)))
+    const songPaths = songs.map(
+      ({ song }) => get().downloads[get().settings.activeServerId || '']?.songs[song.id]?.path,
+    )
 
     return songs.map(({ song, idx }, i) => ({
       id: song.id,

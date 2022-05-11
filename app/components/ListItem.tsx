@@ -256,6 +256,21 @@ const useSongDownload = (id: string) => {
     }
     return false
   })
+  const isPending = useStore(store => {
+    if (!serverId) {
+      return false
+    }
+
+    const downloads = store.downloads[serverId]
+    if (!downloads) {
+      return false
+    }
+
+    if (downloads.pending.allIds.length > 0) {
+      return downloads.pending.allIds.indexOf(id) > 0
+    }
+    return false
+  })
   const [progress, setProgress] = useState<number | undefined>(undefined)
 
   useEffect(() => {
@@ -269,12 +284,12 @@ const useSongDownload = (id: string) => {
     }
   }, [id, job?.received, job?.total, progress])
 
-  return { download, progress, isFetching, songPath }
+  return { download, progress, isFetching, isPending, songPath }
 }
 
 export const SongListItem = React.memo<ListItemProps & SongProps>(props => {
   const { song, contextId, queueId, onPress, showArt, showStar, size, style, subtitle } = useDefaultProps(props)
-  const { songPath, download, isFetching, progress } = useSongDownload(song.id)
+  const { songPath, download, isFetching, isPending, progress } = useSongDownload(song.id)
 
   let subtitleText = song.artist || song.album || song.title
   if ((subtitle === 'album' || subtitle === 'artist') && song[subtitle]) {
@@ -290,29 +305,57 @@ export const SongListItem = React.memo<ListItemProps & SongProps>(props => {
         <ItemTextWrapper>
           <ItemTextTitleSong contextId={contextId} queueId={queueId} title={song.title} size={size} />
           <ItemTextLineWrapper>
+            {/* <ItemTextLineIconWrapper>
+              <Progress.Pie
+                size={13}
+                borderWidth={1}
+                style={styles.iconProgress}
+                color={colors.text.secondary}
+                progress={progress}
+              />
+            </ItemTextLineIconWrapper>
+            <ItemTextLineIconWrapper>
+              <ActivityIndicator size={14} color={colors.text.secondary} style={styles.iconDownloading} />
+            </ItemTextLineIconWrapper>
+            <ItemTextLineIconWrapper>
+              <IconMat name="file-download" size={15} color={colors.text.secondary} style={styles.iconPending} />
+            </ItemTextLineIconWrapper>
+            <ItemTextLineIconWrapper>
+              <IconMat
+                name="file-download-done"
+                size={15}
+                color={colors.text.secondary}
+                style={styles.iconDownloaded}
+              />
+            </ItemTextLineIconWrapper> */}
             {isFetching &&
-              (progress !== undefined && progress > 0.01 ? (
+              (progress !== undefined ? (
                 <ItemTextLineIconWrapper>
                   <Progress.Pie
-                    size={13}
+                    size={12}
                     borderWidth={1}
-                    style={styles.downloadedIcon}
+                    style={styles.iconProgress}
                     color={colors.text.secondary}
                     progress={progress}
                   />
                 </ItemTextLineIconWrapper>
               ) : (
                 <ItemTextLineIconWrapper>
-                  <ActivityIndicator size={14} color={colors.text.secondary} style={styles.downloadActivity} />
+                  <ActivityIndicator size={14} color={colors.text.secondary} style={styles.iconDownloading} />
                 </ItemTextLineIconWrapper>
               ))}
+            {isPending && !isFetching && (
+              <ItemTextLineIconWrapper>
+                <IconMat name="file-download" size={15} color={colors.text.secondary} style={styles.iconPending} />
+              </ItemTextLineIconWrapper>
+            )}
             {!!songPath && (
               <ItemTextLineIconWrapper>
                 <IconMat
                   name="file-download-done"
                   size={15}
                   color={colors.text.secondary}
-                  style={styles.downloadedIcon}
+                  style={styles.iconDownloaded}
                 />
               </ItemTextLineIconWrapper>
             )}
@@ -421,17 +464,24 @@ const styles = StyleSheet.create({
   },
   playingIcon: {
     paddingBottom: 1,
+    paddingLeft: 2,
   },
   textLineIcon: {
     flexDirection: 'row',
-    width: 14,
+    alignItems: 'center',
+    width: 16,
   },
-  downloadedIcon: {
-    flex: 1,
+  iconProgress: {
+    marginLeft: 0,
   },
-  downloadActivity: {
-    flex: 1,
-    paddingRight: 4,
+  iconDownloading: {
+    marginLeft: 0,
+  },
+  iconPending: {
+    marginLeft: -2,
+  },
+  iconDownloaded: {
+    marginLeft: -1,
   },
   controls: {
     flexDirection: 'row',
