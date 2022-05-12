@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { Image, View, StyleSheet, Text } from 'react-native'
-import { useStore } from '@app/state/store'
 import colors from '@app/styles/colors'
 import GradientBackground from '@app/components/GradientBackground'
 import font from '@app/styles/font'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { useStore } from '@app/state/store'
 
 const SplashPage: React.FC<{}> = ({ children }) => {
   const [ready, setReady] = useState(false)
-  const hydrated = useStore(store => store.hydrated)
+  const activeServerId = useStore(store => store.settings.activeServerId)
+  const setActiveServer = useStore(store => store.setActiveServer)
   const opacity = useSharedValue(0)
 
   const animatedStyles = useAnimatedStyle(() => {
@@ -31,6 +32,7 @@ const SplashPage: React.FC<{}> = ({ children }) => {
     })
     promise
       .then(() => {
+        setActiveServer(activeServerId, true)
         setReady(true)
       })
       .then(() => {
@@ -53,11 +55,10 @@ const SplashPage: React.FC<{}> = ({ children }) => {
   )
 
   console.log('ready', ready)
-  console.log('hydrated', hydrated)
 
   return (
     <View style={styles.container}>
-      {ready && hydrated && children}
+      {ready && children}
       {splash}
     </View>
   )

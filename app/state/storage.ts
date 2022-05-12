@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { MMKV } from 'react-native-mmkv'
 import { StateStorage } from 'zustand/middleware'
+import { useStore } from './store'
 
 export const storage = new MMKV()
 
@@ -49,6 +50,8 @@ export async function migrateFromAsyncStorage(): Promise<void> {
   }
 
   storage.set('hasMigratedFromAsyncStorage', true)
+
+  await useStore.persist.rehydrate()
 
   const end = global.performance.now()
   console.log(`Migrated from AsyncStorage -> MMKV in ${end - start}ms!`)

@@ -1,5 +1,4 @@
 import { createSettingsSlice, SettingsSlice } from '@app/state/settings'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import equal from 'fast-deep-equal'
 import create, { GetState, Mutate, SetState, State, StateCreator, StateSelector, StoreApi } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
@@ -12,12 +11,7 @@ import { zustandStorage } from './storage'
 
 const DB_VERSION = migrations.length
 
-export type Store = SettingsSlice &
-  TrackPlayerSlice &
-  DownloadSlice & {
-    hydrated: boolean
-    setHydrated: (hydrated: boolean) => void
-  }
+export type Store = SettingsSlice & TrackPlayerSlice & DownloadSlice
 
 // taken from zustand test examples:
 // https://github.com/pmndrs/zustand/blob/v3.7.1/tests/middlewareTypes.test.tsx#L20
@@ -62,30 +56,12 @@ export const useStore = create<
         ...createSettingsSlice(set, get),
         ...createTrackPlayerSlice(set, get),
         ...createDownloadSlice(set, get),
-
-        hydrated: false,
-        setHydrated: hydrated =>
-          set(state => {
-            state.hydrated = hydrated
-          }),
       })),
       {
         name: '@appStore',
         version: DB_VERSION,
-        getStorage: () => AsyncStorage,
-        // TODO: this doesn't work yet because sync storage with immer seems broken?
-        // getStorage: () => zustandStorage,
+        getStorage: () => zustandStorage,
         partialize: state => ({ settings: state.settings }),
-        onRehydrateStorage: _preState => {
-          return (postState, error) => {
-            if (error) {
-              console.error(error)
-            }
-            console.log('servers:', postState?.settings.servers)
-            postState?.setActiveServer(postState.settings.activeServerId, true)
-            postState?.setHydrated(true)
-          }
-        },
         migrate: async (persistedState, version) => {
           if (version > DB_VERSION) {
             throw new Error('cannot migrate db on a downgrade, delete all data first')

@@ -3,36 +3,36 @@ import RootNavigator from '@app/navigation/RootNavigator'
 import queryClient from '@app/query/queryClient'
 import SplashPage from '@app/screens/SplashPage'
 import colors from '@app/styles/colors'
-import React from 'react'
-import { StatusBar, StyleSheet, View } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { ActivityIndicator, InteractionManager, StatusBar, StyleSheet, View } from 'react-native'
 import { MenuProvider } from 'react-native-popup-menu'
 import { QueryClientProvider } from 'react-query'
+import { hasMigratedFromAsyncStorage, migrateFromAsyncStorage } from './state/storage'
 
 const App = () => {
   // TODO: Remove `hasMigratedFromAsyncStorage` after a while (when everyone has migrated)
-  // const [hasMigrated, setHasMigrated] = useState(hasMigratedFromAsyncStorage)
+  const [hasMigrated, setHasMigrated] = useState(hasMigratedFromAsyncStorage)
 
-  // useEffect(() => {
-  //   if (!hasMigratedFromAsyncStorage) {
-  //     InteractionManager.runAfterInteractions(async () => {
-  //       try {
-  //         await migrateFromAsyncStorage()
-  //         setHasMigrated(true)
-  //       } catch (e) {
-  //         // TODO: fall back to AsyncStorage? Wipe storage clean and use MMKV? Crash app?
-  //         console.error(e)
-  //       }
-  //     })
-  //   }
-  // }, [])
+  useEffect(() => {
+    if (!hasMigratedFromAsyncStorage) {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          await migrateFromAsyncStorage()
+          setHasMigrated(true)
+        } catch (e) {
+          console.error(e)
+        }
+      })
+    }
+  }, [])
 
-  // if (!hasMigrated) {
-  //   return (
-  //     <View style={styles.migrateContainer}>
-  //       <ActivityIndicator size="large" color={colors.accent} />
-  //     </View>
-  //   )
-  // }
+  if (!hasMigrated) {
+    return (
+      <View style={styles.migrateContainer}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    )
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
