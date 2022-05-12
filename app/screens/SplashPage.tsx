@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { Image, View, StyleSheet, Text } from 'react-native'
-import { Store, useStore } from '@app/state/store'
+import { useStore } from '@app/state/store'
 import colors from '@app/styles/colors'
 import GradientBackground from '@app/components/GradientBackground'
 import font from '@app/styles/font'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 
-const selectHydrated = (store: Store) => store.hydrated
-
 const SplashPage: React.FC<{}> = ({ children }) => {
   const [ready, setReady] = useState(false)
-  const hydrated = useStore(selectHydrated)
+  const hydrated = useStore(store => store.hydrated)
   const opacity = useSharedValue(0)
 
   const animatedStyles = useAnimatedStyle(() => {
@@ -53,6 +51,9 @@ const SplashPage: React.FC<{}> = ({ children }) => {
       </GradientBackground>
     </Animated.View>
   )
+
+  console.log('ready', ready)
+  console.log('hydrated', hydrated)
 
   return (
     <View style={styles.container}>

@@ -15,6 +15,9 @@ import { AlbumContextPressable, ArtistContextPressable, SongContextPressable } f
 import CoverArt, { AlbumIdImageProps, ArtistImageProps, CoverArtImageProps } from './CoverArt'
 import PressableOpacity from './PressableOpacity'
 import { PressableStar } from './Star'
+import { useMMKVString } from 'react-native-mmkv'
+import qk from '@app/query/queryKeys'
+import { storage, stringifyKey } from '@app/query/downloadCache'
 
 const ItemTextTitleSong = React.memo<
   SizeProp & {
@@ -239,8 +242,9 @@ export const PlaylistListItem = React.memo<Omit<ListItemProps, 'showStar'> & Pla
 const useSongDownload = (id: string) => {
   const download = useStore(store => () => store.downloadSong(id))
   const serverId = useStore(store => store.settings.activeServerId)
-  const job = useStoreDeep(store => (serverId ? store.downloads[serverId]?.pending.byId[id] : undefined))
-  const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
+  const job = useStoreDeep(store => (serverId ? store.downloads[serverId]?.byId[id] : undefined))
+  // const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
+  const [songPath] = useMMKVString(stringifyKey(qk.songPath(id)), serverId ? storage(serverId) : undefined)
   const isFetching = useStore(store => {
     if (!serverId) {
       return false
@@ -251,8 +255,8 @@ const useSongDownload = (id: string) => {
       return false
     }
 
-    if (downloads.pending.allIds.length > 0) {
-      return downloads.pending.allIds[0] === id
+    if (downloads.allIds.length > 0) {
+      return downloads.allIds[0] === id
     }
     return false
   })
@@ -266,8 +270,8 @@ const useSongDownload = (id: string) => {
       return false
     }
 
-    if (downloads.pending.allIds.length > 0) {
-      return downloads.pending.allIds.indexOf(id) > 0
+    if (downloads.allIds.length > 0) {
+      return downloads.allIds.indexOf(id) > 0
     }
     return false
   })

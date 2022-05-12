@@ -17,38 +17,38 @@ const useSongListDownload = (ids: string[]) => {
       return
     }
 
-    return ids.map(id => store.downloads[serverId]?.pending.byId[id])
+    return ids.map(id => store.downloads[serverId]?.byId[id])
   })
-  const isDownloaded = useStore(store => {
-    if (!serverId) {
-      return false
-    }
+  // const isDownloaded = useStore(store => {
+  //   if (!serverId) {
+  //     return false
+  //   }
 
-    const downloads = store.downloads[serverId]
-    if (!downloads) {
-      return false
-    }
+  //   const downloads = store.downloads[serverId]
+  //   if (!downloads) {
+  //     return false
+  //   }
 
-    return ids.every(id => id in downloads.songs)
-  })
-  const isFetching = useStore(store => {
-    if (!serverId) {
-      return false
-    }
+  //   return ids.every(id => id in downloads.songs)
+  // })
+  // const isFetching = useStore(store => {
+  //   if (!serverId) {
+  //     return false
+  //   }
 
-    const downloads = store.downloads[serverId]
-    if (!downloads) {
-      return false
-    }
+  //   const downloads = store.downloads[serverId]
+  //   if (!downloads) {
+  //     return false
+  //   }
 
-    if (downloads.pending.allIds.length > 0) {
-      return ids.some(id => id === downloads.pending.allIds[0])
-    }
-    return false
-  })
+  //   if (downloads.pending.allIds.length > 0) {
+  //     return ids.some(id => id === downloads.pending.allIds[0])
+  //   }
+  //   return false
+  // })
   const isPending = jobs !== undefined && jobs.some(j => j !== undefined)
 
-  return { download, isFetching, isPending, isDownloaded }
+  return { download, isFetching: false, isPending, isDownloaded: false }
 }
 
 const ListPlayerControls = withSuspenseMemo<{

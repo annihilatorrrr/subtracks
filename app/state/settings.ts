@@ -33,7 +33,7 @@ export type SettingsSlice = {
 
   changeCacheBuster: () => void
 
-  setActiveServer: (id: string | undefined, force?: boolean) => Promise<void>
+  setActiveServer: (id: string | undefined, force?: boolean) => void
   addServer: (server: Server) => void
   removeServer: (id: string) => void
   updateServer: (server: Server) => void
@@ -94,7 +94,7 @@ export const createSettingsSlice = (set: SetStore, get: GetStore): SettingsSlice
     })
   },
 
-  setActiveServer: async (id, force) => {
+  setActiveServer: (id, force) => {
     const servers = get().settings.servers
     const currentActiveServerId = get().settings.activeServerId
     const newActiveServer = id ? servers[id] : undefined

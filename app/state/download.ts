@@ -1,9 +1,10 @@
 import { CacheImageSize } from '@app/models/cache'
 import { AlbumSongs, ArtistAlbums, ArtistInfo, PlaylistSongs, Song } from '@app/models/library'
 import { ById, OrderedById } from '@app/models/state'
+import downloadCache from '@app/query/downloadCache'
 import { fetchAlbum, fetchArtist, fetchArtistInfo, fetchPlaylist, fetchSong } from '@app/query/fetch/api'
 import { fetchExistingFile, fetchFile, FetchFileOptions } from '@app/query/fetch/file'
-import queryClient from '@app/query/queryClient'
+import queryCache from '@app/query/queryCache'
 import qk from '@app/query/queryKeys'
 import { SubsonicApiClient } from '@app/subsonic/api'
 import PromiseQueue from '@app/util/PromiseQueue'
@@ -23,22 +24,10 @@ export type DownloadJob = {
   total?: number
 }
 
-export type DownloadedSong = Song & {
-  path: string
-}
-
-export type DownloadCache = {
-  pending: OrderedById<DownloadJob>
-
-  songs: ById<DownloadedSong>
-  albums: ById<AlbumSongs>
-  artists: ById<ArtistAlbums>
-  artistsInfo: ById<ArtistInfo>
-  playlists: ById<PlaylistSongs>
-}
+export type DownloadQueue = OrderedById<DownloadJob>
 
 export type DownloadSlice = {
-  downloads: ById<DownloadCache>
+  downloads: ById<DownloadQueue>
 
   downloadSong: (id: string, playlistId?: string) => DownloadJob | undefined
   _downloadSong: (id: string, serverId: string) => Promise<void>
@@ -51,28 +40,28 @@ export type DownloadSlice = {
   _cacheCoverArt: (coverArt: string, size: CacheImageSize, serverId: string, client: SubsonicApiClient) => Promise<void>
   _cacheArtistArt: (artistId: string, size: CacheImageSize, fromUrl: string, serverId: string) => Promise<void>
 
-  _getDownloadCache: (serverId?: string) => { downloads: DownloadCache; serverId: string } | undefined
+  _getDownloadQueue: (serverId?: string) => { queue: DownloadQueue; serverId: string } | undefined
 }
 
 export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice => ({
   downloads: {},
 
   downloadSong: (id, playlistId) => {
-    const downloadCache = get()._getDownloadCache()
-    if (!downloadCache) {
+    const downloads = get()._getDownloadQueue()
+    if (!downloads) {
       return
     }
 
-    const { downloads, serverId } = downloadCache
+    const { queue, serverId } = downloads
 
-    if (id in downloads.songs || id in downloads.pending.byId) {
+    if (downloadCache(serverId).get(qk.songPath(id)) || id in queue.byId) {
       return
     }
 
     const job: DownloadJob = { id, playlistId }
     set(state => {
-      state.downloads[serverId].pending.byId[job.id] = job
-      state.downloads[serverId].pending.allIds.push(job.id)
+      state.downloads[serverId].byId[job.id] = job
+      state.downloads[serverId].allIds.push(job.id)
     })
 
     downloadQueue.enqueue(() =>
@@ -83,8 +72,8 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
         })
         .finally(() => {
           set(state => {
-            delete state.downloads[serverId].pending.byId[id]
-            state.downloads[serverId].pending.allIds.shift()
+            delete state.downloads[serverId].byId[id]
+            state.downloads[serverId].allIds.shift()
           })
         }),
     )
@@ -93,12 +82,12 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 
   _downloadSong: async (id, serverId) => {
-    const downloadCache = get()._getDownloadCache(serverId)
-    if (!downloadCache) {
+    const downloads = get()._getDownloadQueue(serverId)
+    if (!downloads) {
       return
     }
 
-    const job = downloadCache.downloads.pending.byId[id]
+    const job = downloads.queue.byId[id]
     if (!job) {
       return
     }
@@ -119,7 +108,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     job.song = song
     job.playlist = playlist
     set(state => {
-      state.downloads[serverId].pending.byId[id] = { ...job }
+      state.downloads[serverId].byId[id] = { ...job }
     })
 
     if (!song.albumId) {
@@ -137,7 +126,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     job.artist = artist
     job.artistInfo = artistInfo
     set(state => {
-      state.downloads[serverId].pending.byId[id] = { ...job }
+      state.downloads[serverId].byId[id] = { ...job }
     })
 
     // make sure all art downloaded
@@ -165,35 +154,31 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
         expectedContentType: 'audio',
         progress: (received, total) => {
           set(state => {
-            state.downloads[serverId].pending.byId[id].received = received
-            state.downloads[serverId].pending.byId[id].total = total
+            state.downloads[serverId].byId[id].received = received
+            state.downloads[serverId].byId[id].total = total
           })
         },
       },
       serverId,
     )
 
-    // save path
-    set(state => {
-      state.downloads[serverId].songs[id] = { ...song, path }
-      state.downloads[serverId].albums[album.album.id] = album
-
-      if (artist) {
-        state.downloads[serverId].artists[artist.artist.id] = artist
-      }
-
-      if (artistInfo) {
-        state.downloads[serverId].artistsInfo[artistInfo.id] = artistInfo
-      }
-
-      if (playlist) {
-        state.downloads[serverId].playlists[playlist.playlist.id] = playlist
-      }
-    })
+    // save data
+    downloadCache(serverId).set(qk.song(id), song)
+    downloadCache(serverId).set(qk.songPath(id), path)
+    downloadCache(serverId).set(qk.album(album.album.id), album)
+    if (artist) {
+      downloadCache(serverId).set(qk.artist(artist.artist.id), artist)
+    }
+    if (artistInfo) {
+      downloadCache(serverId).set(qk.artistInfo(artistInfo.id), artistInfo)
+    }
+    if (playlist) {
+      downloadCache(serverId).set(qk.playlist(playlist.playlist.id), playlist)
+    }
   },
 
   _fetchSong: async (id, serverId, client) => {
-    const downloaded = get().downloads[serverId].songs[id]
+    const downloaded = downloadCache(serverId).get(qk.song(id))
     if (downloaded) {
       return downloaded
     }
@@ -202,12 +187,12 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 
   _fetchPlaylist: async (id, serverId, client) => {
-    const downloaded = get().downloads[serverId].playlists[id]
+    const downloaded = downloadCache(serverId).get(qk.playlist(id))
     if (downloaded) {
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<PlaylistSongs>(qk.playlist(id))
+    const cachedById = queryCache.get(qk.playlist(id))
     if (cachedById) {
       return cachedById
     }
@@ -216,12 +201,12 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 
   _fetchAlbum: async (id, serverId, client) => {
-    const downloaded = get().downloads[serverId].albums[id]
+    const downloaded = downloadCache(serverId).get(qk.album(id))
     if (downloaded) {
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<AlbumSongs>(qk.album(id))
+    const cachedById = queryCache.get(qk.album(id))
     if (cachedById) {
       return cachedById
     }
@@ -230,12 +215,12 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 
   _fetchArtist: async (id, serverId, client) => {
-    const downloaded = get().downloads[serverId].artists[id]
+    const downloaded = downloadCache(serverId).get(qk.artist(id))
     if (downloaded) {
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<ArtistAlbums>(qk.artist(id))
+    const cachedById = queryCache.get(qk.artist(id))
     if (cachedById) {
       return cachedById
     }
@@ -244,12 +229,12 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 
   _fetchArtistInfo: async (id, serverId, client) => {
-    const downloaded = get().downloads[serverId].artistsInfo[id]
+    const downloaded = downloadCache(serverId).get(qk.artistInfo(id))
     if (downloaded) {
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<ArtistInfo>(qk.artistInfo(id))
+    const cachedById = queryCache.get(qk.artistInfo(id))
     if (cachedById) {
       return cachedById
     }
@@ -289,32 +274,20 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     } catch {}
   },
 
-  _getDownloadCache: serverId => {
+  _getDownloadQueue: serverId => {
     serverId = serverId || get().settings.activeServerId
     if (!serverId) {
       return
     }
 
-    let downloads = get().downloads[serverId]
-    if (!downloads) {
-      downloads = createDownloadCache()
+    let queue = get().downloads[serverId]
+    if (!queue) {
+      queue = { byId: {}, allIds: [] }
       set(state => {
-        state.downloads[serverId!] = downloads
+        state.downloads[serverId!] = queue
       })
     }
 
-    return { downloads, serverId }
+    return { queue, serverId }
   },
 })
-
-function createDownloadCache(): DownloadCache {
-  return {
-    pending: { byId: {}, allIds: [] },
-
-    songs: {},
-    albums: {},
-    artists: {},
-    artistsInfo: {},
-    playlists: {},
-  }
-}

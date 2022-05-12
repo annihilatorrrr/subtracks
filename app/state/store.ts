@@ -8,6 +8,7 @@ import { createTrackPlayerSlice, TrackPlayerSlice } from './trackplayer'
 import produce, { Draft } from 'immer'
 import { WritableDraft } from 'immer/dist/internal'
 import { createDownloadSlice, DownloadSlice } from './download'
+import { zustandStorage } from './storage'
 
 const DB_VERSION = migrations.length
 
@@ -72,10 +73,16 @@ export const useStore = create<
         name: '@appStore',
         version: DB_VERSION,
         getStorage: () => AsyncStorage,
+        // TODO: this doesn't work yet because sync storage with immer seems broken?
+        // getStorage: () => zustandStorage,
         partialize: state => ({ settings: state.settings }),
         onRehydrateStorage: _preState => {
-          return async (postState, _error) => {
-            await postState?.setActiveServer(postState.settings.activeServerId, true)
+          return (postState, error) => {
+            if (error) {
+              console.error(error)
+            }
+            console.log('servers:', postState?.settings.servers)
+            postState?.setActiveServer(postState.settings.activeServerId, true)
             postState?.setHydrated(true)
           }
         },

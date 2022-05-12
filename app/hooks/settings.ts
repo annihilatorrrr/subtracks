@@ -1,9 +1,9 @@
 import { CacheItemTypeKey } from '@app/models/cache'
 import queryClient from '@app/query/queryClient'
+import { qkFilters } from '@app/query/queryKeys'
 import { useStore, useStoreDeep } from '@app/state/store'
 import cacheDir from '@app/util/cacheDir'
 import RNFS from 'react-native-fs'
-import qk from '@app/query/queryKeys'
 
 export const useSwitchActiveServer = () => {
   const activeServerId = useStore(store => store.settings.activeServerId)
@@ -37,12 +37,12 @@ export const useResetImageCache = () => {
     try {
       // disable/invalidate queries
       await Promise.all([
-        queryClient.cancelQueries(qk.artistArt(), { active: true }),
-        queryClient.cancelQueries(qk.coverArt(), { active: true }),
-        queryClient.cancelQueries(qk.existingFiles(), { active: true }),
-        queryClient.invalidateQueries(qk.artistArt(), { refetchActive: false }),
-        queryClient.invalidateQueries(qk.coverArt(), { refetchActive: false }),
-        queryClient.invalidateQueries(qk.existingFiles(), { refetchActive: false }),
+        queryClient.cancelQueries(qkFilters.artistArt(), { active: true }),
+        queryClient.cancelQueries(qkFilters.coverArt(), { active: true }),
+        queryClient.cancelQueries(qkFilters.existingFiles(), { active: true }),
+        queryClient.invalidateQueries(qkFilters.artistArt(), { refetchActive: false }),
+        queryClient.invalidateQueries(qkFilters.coverArt(), { refetchActive: false }),
+        queryClient.invalidateQueries(qkFilters.existingFiles(), { refetchActive: false }),
       ])
 
       // delete all images
@@ -65,9 +65,9 @@ export const useResetImageCache = () => {
 
       // enable queries
       await Promise.all([
-        queryClient.refetchQueries(qk.existingFiles(), { active: true }),
-        queryClient.refetchQueries(qk.artistArt(), { active: true }),
-        queryClient.refetchQueries(qk.coverArt(), { active: true }),
+        queryClient.refetchQueries(qkFilters.existingFiles(), { active: true }),
+        queryClient.refetchQueries(qkFilters.artistArt(), { active: true }),
+        queryClient.refetchQueries(qkFilters.coverArt(), { active: true }),
       ])
     }
   }
