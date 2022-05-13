@@ -1,5 +1,5 @@
 import { MMKV } from 'react-native-mmkv'
-import { QueryCache } from './queryCache'
+import { hashQueryKey, QueryKey } from 'react-query'
 
 const _storage: { [serverId: string]: MMKV } = {}
 
@@ -10,17 +10,13 @@ export const storage = (serverId: string): MMKV => {
   return _storage[serverId]
 }
 
-export function stringifyKey(key: any[]): string {
-  return key.join('.')
-}
-
-const downloadCache = (serverId: string): QueryCache => {
+const downloadCache = (serverId: string) => {
   return {
-    get: key => {
-      const value = storage(serverId).getString(stringifyKey(key))
+    get: (key: QueryKey) => {
+      const value = storage(serverId).getString(hashQueryKey(key))
       return value !== undefined ? JSON.parse(value) : undefined
     },
-    set: (key, value) => storage(serverId).set(stringifyKey(key), JSON.stringify(value)),
+    set: (key: QueryKey, value: any) => storage(serverId).set(hashQueryKey(key), JSON.stringify(value)),
   }
 }
 

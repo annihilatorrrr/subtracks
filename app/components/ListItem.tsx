@@ -1,5 +1,7 @@
 import { useIsPlaying } from '@app/hooks/trackplayer'
 import { Album, Artist, Playlist, Song, StarrableItemType } from '@app/models/library'
+import { SongPathKey } from '@app/query/cache'
+import { storage } from '@app/query/downloadCache'
 import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
@@ -7,17 +9,16 @@ import { useNavigation } from '@react-navigation/native'
 import equal from 'fast-deep-equal/es6/react'
 import React, { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatListProps, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native'
+import { useMMKVString } from 'react-native-mmkv'
 import * as Progress from 'react-native-progress'
 import IconFA from 'react-native-vector-icons/FontAwesome'
 import IconFA5 from 'react-native-vector-icons/FontAwesome5'
 import IconMat from 'react-native-vector-icons/MaterialIcons'
+import { hashQueryKey } from 'react-query'
 import { AlbumContextPressable, ArtistContextPressable, SongContextPressable } from './ContextMenu'
 import CoverArt, { AlbumIdImageProps, ArtistImageProps, CoverArtImageProps } from './CoverArt'
 import PressableOpacity from './PressableOpacity'
 import { PressableStar } from './Star'
-import { useMMKVString } from 'react-native-mmkv'
-import qk from '@app/query/queryKeys'
-import { storage, stringifyKey } from '@app/query/downloadCache'
 
 const ItemTextTitleSong = React.memo<
   SizeProp & {
@@ -244,7 +245,7 @@ const useSongDownload = (id: string) => {
   const serverId = useStore(store => store.settings.activeServerId)
   const job = useStoreDeep(store => (serverId ? store.downloads[serverId]?.byId[id] : undefined))
   // const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
-  const [songPath] = useMMKVString(stringifyKey(qk.songPath(id)), serverId ? storage(serverId) : undefined)
+  const [songPath] = useMMKVString(hashQueryKey(SongPathKey({ id })), serverId ? storage(serverId) : undefined)
   const isFetching = useStore(store => {
     if (!serverId) {
       return false

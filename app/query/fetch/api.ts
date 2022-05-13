@@ -1,18 +1,17 @@
 import useClient from '@app/hooks/useClient'
 import { AlbumSongs, ArtistAlbums, ArtistInfo, PlaylistSongs, SearchResults, Song } from '@app/models/library'
 import { mapAlbum, mapArtist, mapArtistInfo, mapPlaylist, mapSong } from '@app/models/map'
-import qk from '@app/query/queryKeys'
 import { SubsonicApiClient } from '@app/subsonic/api'
 import { GetAlbumList2TypeBase, Search3Params, StarParams } from '@app/subsonic/params'
 import { mapCollectionById } from '@app/util/state'
-import queryCache from '../queryCache'
+import { AlbumCoverArtCache, StarredItemsCache } from '../cache'
 
 function cacheStarredData<T extends { id: string; starred?: undefined | any }>(item: T) {
-  queryCache.set(qk.starredItems(item.id), !!item.starred)
+  StarredItemsCache({ id: item.id }).setQueryData(!!item.starred)
 }
 
 function cacheAlbumCoverArtData<T extends { id: string; coverArt?: string }>(item: T) {
-  queryCache.set(qk.albumCoverArt(item.id), item.coverArt)
+  AlbumCoverArtCache({ id: item.id }).setQueryData(item.coverArt)
 }
 
 export const useFetchArtists = () => {

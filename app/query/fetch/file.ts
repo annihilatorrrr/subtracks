@@ -1,5 +1,4 @@
 import { CacheItemTypeKey } from '@app/models/cache'
-import qk from '@app/query/queryKeys'
 import { useStore } from '@app/state/store'
 import cacheDir from '@app/util/cacheDir'
 import userAgent from '@app/util/userAgent'
@@ -8,7 +7,7 @@ import mime from 'mime-types'
 import path from 'path'
 import ReactNativeBlobUtil, { FetchBlobResponse } from 'react-native-blob-util'
 import RNFS from 'react-native-fs'
-import queryCache from '../queryCache'
+import { ExistingFilesCache } from '../cache'
 
 export type FetchExisingFileOptions = {
   itemType: CacheItemTypeKey
@@ -132,7 +131,7 @@ export async function fetchFile(options: FetchFileOptions, serverId: string | un
   }
 
   const downloadPath = res.path()
-  queryCache.set(qk.existingFiles(itemType, itemId), downloadPath)
+  ExistingFilesCache({ type: itemType, itemId }).setQueryData(downloadPath)
 
   console.log('downloaded file:', downloadPath)
   return downloadPath

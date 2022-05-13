@@ -1,9 +1,27 @@
 import { CacheImageSize, CacheItemTypeKey } from '@app/models/cache'
 import { Album, Playlist, Song, StarrableItemType } from '@app/models/library'
+import {
+  AlbumCoverArtKey,
+  AlbumKey,
+  AlbumListFilterKey,
+  AlbumListKey,
+  ArtistArtKey,
+  ArtistInfoKey,
+  ArtistKey,
+  ArtistsCache,
+  ArtistsKey,
+  ArtistTopSongsKey,
+  CoverArtKey,
+  ExistingFilesKey,
+  PlaylistKey,
+  PlaylistsCache,
+  PlaylistsKey,
+  SearchKey,
+  StarredItemsCache,
+  StarredItemsKey,
+} from '@app/query/cache'
 import { useFetchExistingFile, useFetchFile } from '@app/query/fetch/file'
-import queryCache from '@app/query/queryCache'
 import queryClient from '@app/query/queryClient'
-import qk, { qkFilters } from '@app/query/queryKeys'
 import { useStore } from '@app/state/store'
 import { GetAlbumList2TypeBase, Search3Params, StarParams } from '@app/subsonic/params'
 import _ from 'lodash'
@@ -23,14 +41,14 @@ import {
   useFetchUnstar,
 } from '../query/fetch/api'
 
-export const useQueryArtists = () => useQuery(qk.artists(), useFetchArtists())
+export const useQueryArtists = () => useQuery(ArtistsKey(), useFetchArtists())
 
 export const useQueryArtist = (id: string) => {
   const fetchArtist = useFetchArtist()
 
-  return useQuery(qk.artist(id), () => fetchArtist(id), {
+  return useQuery(ArtistKey({ id }), () => fetchArtist(id), {
     placeholderData: () => {
-      const artist = queryCache.get(qk.artists())?.byId[id]
+      const artist = ArtistsCache().getQueryData()?.byId[id]
       if (artist) {
         return { artist, albums: [] }
       }
@@ -40,12 +58,12 @@ export const useQueryArtist = (id: string) => {
 
 export const useQueryArtistInfo = (id: string) => {
   const fetchArtistInfo = useFetchArtistInfo()
-  return useQuery(qk.artistInfo(id), () => fetchArtistInfo(id))
+  return useQuery(ArtistInfoKey({ id }), () => fetchArtistInfo(id))
 }
 
 export const useQueryArtistTopSongs = (artistName?: string) => {
   const fetchArtistTopSongs = useFetchArtistTopSongs()
-  const query = useQuery(qk.artistTopSongs(artistName || ''), () => fetchArtistTopSongs(artistName as string), {
+  const query = useQuery(ArtistTopSongsKey({ artistName: artistName || '' }), () => fetchArtistTopSongs(artistName!), {
     enabled: !!artistName,
     retry: false,
     staleTime: Infinity,
@@ -58,7 +76,7 @@ export const useQueryArtistTopSongs = (artistName?: string) => {
   const fetchSearchResults = useFetchSearchResults()
   const [artistCount, albumCount, songCount] = [0, 0, 300]
   const backupQuery = useQuery(
-    qk.search(artistName || '', artistCount, albumCount, songCount),
+    SearchKey({ query: artistName || '', artistCount, albumCount, songCount }),
     () => fetchSearchResults({ query: artistName as string, artistCount, albumCount, songCount }),
     {
       select: data => {
@@ -82,18 +100,18 @@ export const useQueryArtistTopSongs = (artistName?: string) => {
   return querySuccess ? query : backupQuery
 }
 
-export const useQueryPlaylists = () => useQuery(qk.playlists(), useFetchPlaylists())
+export const useQueryPlaylists = () => useQuery(PlaylistsKey(), useFetchPlaylists())
 
 export const useQueryPlaylist = (id: string, placeholderPlaylist?: Playlist) => {
   const fetchPlaylist = useFetchPlaylist()
 
-  const query = useQuery(qk.playlist(id), () => fetchPlaylist(id), {
+  const query = useQuery(PlaylistKey({ id }), () => fetchPlaylist(id), {
     placeholderData: () => {
       if (placeholderPlaylist) {
         return { playlist: placeholderPlaylist } as any
       }
 
-      const playlist = queryCache.get(qk.playlists())?.byId[id]
+      const playlist = PlaylistsCache().getQueryData()?.byId[id]
       if (playlist) {
         return { playlist, songs: [] }
       }
@@ -106,7 +124,7 @@ export const useQueryPlaylist = (id: string, placeholderPlaylist?: Playlist) => 
 export const useQueryAlbum = (id: string, placeholderAlbum?: Album) => {
   const fetchAlbum = useFetchAlbum()
 
-  const query = useQuery(qk.album(id), () => fetchAlbum(id), {
+  const query = useQuery(AlbumKey({ id }), () => fetchAlbum(id), {
     placeholderData: (): { album: Album; songs?: Song[] } | undefined =>
       placeholderAlbum ? { album: placeholderAlbum } : undefined,
   })
@@ -118,7 +136,7 @@ export const useQueryAlbumList = (type: GetAlbumList2TypeBase, size: number) => 
   const fetchAlbumList = useFetchAlbumList()
 
   return useInfiniteQuery(
-    qk.albumList(type, size),
+    AlbumListKey({ type, size }),
     async context => {
       return await fetchAlbumList(size, context.pageParam || 0, type)
     },
@@ -138,7 +156,7 @@ export const useQuerySearchResults = (params: Search3Params) => {
   const fetchSearchResults = useFetchSearchResults()
 
   const query = useInfiniteQuery(
-    qk.search(params.query, params.artistCount, params.albumCount, params.songCount),
+    SearchKey(params),
     async context => {
       return await fetchSearchResults({
         ...params,
@@ -172,7 +190,7 @@ export const useQueryHomeLists = (types: GetAlbumList2TypeBase[], size: number) 
   const listQueries = useQueries(
     types.map(type => {
       return {
-        queryKey: qk.albumList(type, size),
+        queryKey: AlbumListKey({ type, size }),
         queryFn: async () => {
           const albums = await fetchAlbumList(size, 0, type as GetAlbumList2TypeBase)
           return { type, albums }
@@ -192,7 +210,7 @@ export const useStar = (id: string, type: StarrableItemType) => {
   const fetchArtist = useFetchArtist()
 
   const query = useQuery(
-    qk.starredItems(id),
+    StarredItemsKey({ id }),
     async () => {
       switch (type) {
         case 'album':
@@ -223,11 +241,11 @@ export const useStar = (id: string, type: StarrableItemType) => {
     },
     {
       onMutate: () => {
-        queryCache.set(qk.starredItems(id), !query.data)
+        StarredItemsCache({ id }).setQueryData(!query.data)
       },
       onSuccess: () => {
         if (type === 'album') {
-          queryClient.invalidateQueries(qkFilters.albumList('starred'))
+          queryClient.invalidateQueries(AlbumListFilterKey({ type: 'starred' }))
         }
       },
     },
@@ -239,7 +257,7 @@ export const useStar = (id: string, type: StarrableItemType) => {
 export const useQueryExistingFile = (itemType: CacheItemTypeKey, itemId: string) => {
   const fetchExistingFile = useFetchExistingFile()
 
-  return useQuery(qk.existingFiles(itemType, itemId), () => fetchExistingFile({ itemType, itemId }), {
+  return useQuery(ExistingFilesKey({ itemId, type: itemType }), () => fetchExistingFile({ itemType, itemId }), {
     staleTime: Infinity,
     cacheTime: Infinity,
     notifyOnChangeProps: ['data', 'isFetched'],
@@ -254,7 +272,7 @@ export const useQueryCoverArtPath = (coverArt = '-1', size: CacheImageSize = 'th
   const existing = useQueryExistingFile(itemType, coverArt)
 
   const query = useQuery(
-    qk.coverArt(coverArt, size),
+    CoverArtKey({ coverArt, size }),
     async () => {
       if (!client) {
         return
@@ -282,7 +300,7 @@ export const useQueryArtistArtPath = (artistId: string, size: CacheImageSize = '
   const existing = useQueryExistingFile(itemType, artistId)
 
   const query = useQuery(
-    qk.artistArt(artistId, size),
+    ArtistArtKey({ artistId, size }),
     async () => {
       if (!client || !artistInfo?.smallImageUrl || !artistInfo?.largeImageUrl) {
         return
@@ -309,7 +327,7 @@ export const useQueryAlbumCoverArtPath = (albumId?: string, size: CacheImageSize
   const fetchAlbum = useFetchAlbum()
 
   const query = useQuery(
-    qk.albumCoverArt(albumId || '-1'),
+    AlbumCoverArtKey({ id: albumId || '-1' }),
     async () => (await fetchAlbum(albumId || '-1')).album.coverArt,
     {
       enabled: !!albumId,
