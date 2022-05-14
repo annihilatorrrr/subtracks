@@ -1,5 +1,6 @@
 import { useIsPlaying } from '@app/hooks/trackplayer'
 import { Album, Artist, Playlist, Song, StarrableItemType } from '@app/models/library'
+import { downloadId } from '@app/state/download'
 import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
@@ -239,35 +240,18 @@ export const PlaylistListItem = React.memo<Omit<ListItemProps, 'showStar'> & Pla
 const useSongDownload = (id: string) => {
   const download = useStore(store => () => store.downloadSong(id))
   const serverId = useStore(store => store.settings.activeServerId)
-  const job = useStoreDeep(store => (serverId ? store.downloads[serverId]?.pending.byId[id] : undefined))
+  const jobId = downloadId({ songId: id, serverId: serverId! })
+  const job = useStoreDeep(store => store.downloadQueue.byId[jobId])
   const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
   const isFetching = useStore(store => {
-    if (!serverId) {
-      return false
-    }
-
-    const downloads = store.downloads[serverId]
-    if (!downloads) {
-      return false
-    }
-
-    if (downloads.pending.allIds.length > 0) {
-      return downloads.pending.allIds[0] === id
+    if (store.downloadQueue.allIds.length > 0) {
+      return store.downloadQueue.allIds[0] === jobId
     }
     return false
   })
   const isPending = useStore(store => {
-    if (!serverId) {
-      return false
-    }
-
-    const downloads = store.downloads[serverId]
-    if (!downloads) {
-      return false
-    }
-
-    if (downloads.pending.allIds.length > 0) {
-      return downloads.pending.allIds.indexOf(id) > 0
+    if (store.downloadQueue.allIds.length > 0) {
+      return store.downloadQueue.allIds.indexOf(jobId) > 0
     }
     return false
   })
@@ -282,7 +266,7 @@ const useSongDownload = (id: string) => {
     if (progress === undefined || newProgress > progress) {
       setProgress(newProgress)
     }
-  }, [id, job?.received, job?.total, progress])
+  }, [job?.received, job?.total, progress])
 
   return { download, progress, isFetching, isPending, songPath }
 }

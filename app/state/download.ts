@@ -8,10 +8,12 @@ import { SubsonicApiClient } from '@app/subsonic/api'
 import PromiseQueue from '@app/util/PromiseQueue'
 import { GetStore, SetStore } from './store'
 
-const downloadQueue = new PromiseQueue(1)
+let downloadQueue: PromiseQueue
 
 export type DownloadJob = {
   id: string
+  songId: string
+  serverId: string
   playlistId?: string
   song?: Song
   album?: AlbumSongs
@@ -27,8 +29,6 @@ export type DownloadedSong = Song & {
 }
 
 export type DownloadCache = {
-  pending: OrderedById<DownloadJob>
-
   songs: ById<DownloadedSong>
   albums: ById<AlbumSongs>
   artists: ById<ArtistAlbums>
@@ -36,11 +36,20 @@ export type DownloadCache = {
   playlists: ById<PlaylistSongs>
 }
 
+export type DownloadJobOptions = {
+  songId: string
+  serverId: string
+}
+
 export type DownloadSlice = {
   downloads: ById<DownloadCache>
+  downloadQueue: OrderedById<DownloadJob>
 
+  initDownloads: () => void
   downloadSong: (id: string, playlistId?: string) => DownloadJob | undefined
-  _downloadSong: (id: string, serverId: string) => Promise<void>
+
+  _enqueueJob: (id: string) => Promise<void>
+  _downloadJob: (id: string) => Promise<void>
 
   _fetchSong: (id: string, serverId: string, client: SubsonicApiClient) => Promise<Song>
   _fetchPlaylist: (id: string, serverId: string, client: SubsonicApiClient) => Promise<PlaylistSongs>
@@ -55,50 +64,70 @@ export type DownloadSlice = {
 
 export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice => ({
   downloads: {},
+  downloadQueue: { byId: {}, allIds: [] },
 
-  downloadSong: (id, playlistId) => {
+  initDownloads: () => {
+    if (downloadQueue) {
+      return
+    }
+
+    downloadQueue = new PromiseQueue(1)
+
+    for (const id of get().downloadQueue.allIds) {
+      get()._enqueueJob(id)
+    }
+  },
+
+  downloadSong: (songId, playlistId) => {
     const downloadCache = get()._getDownloadCache()
     if (!downloadCache) {
       return
     }
 
     const { downloads, serverId } = downloadCache
+    const id = downloadId({ songId, serverId })
 
-    if (id in downloads.songs || id in downloads.pending.byId) {
+    if (songId in downloads.songs || id in get().downloadQueue.byId) {
       return
     }
 
-    const job: DownloadJob = { id, playlistId }
+    const job: DownloadJob = { id, songId, serverId, playlistId }
     set(state => {
-      state.downloads[serverId].pending.byId[job.id] = job
-      state.downloads[serverId].pending.allIds.push(job.id)
+      state.downloadQueue.byId[job.id] = job
+      state.downloadQueue.allIds.push(job.id)
     })
 
-    downloadQueue.enqueue(() =>
+    get()._enqueueJob(id)
+
+    return job
+  },
+
+  _enqueueJob: async (id: string) => {
+    return downloadQueue.enqueue(() =>
       get()
-        ._downloadSong(id, serverId)
+        ._downloadJob(id)
         .catch(err => {
           console.warn(err)
         })
         .finally(() => {
           set(state => {
-            delete state.downloads[serverId].pending.byId[id]
-            state.downloads[serverId].pending.allIds.shift()
+            delete state.downloadQueue.byId[id]
+            state.downloadQueue.allIds.shift()
           })
         }),
     )
-
-    return job
   },
 
-  _downloadSong: async (id, serverId) => {
-    const downloadCache = get()._getDownloadCache(serverId)
-    if (!downloadCache) {
+  _downloadJob: async id => {
+    const job = get().downloadQueue.byId[id]
+    if (!job) {
       return
     }
 
-    const job = downloadCache.downloads.pending.byId[id]
-    if (!job) {
+    const { songId, serverId } = job
+
+    const downloadCache = get()._getDownloadCache(serverId)
+    if (!downloadCache) {
       return
     }
 
@@ -111,14 +140,14 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
 
     // fetch song (and optionally playlist)
     const [song, playlist] = await Promise.all([
-      get()._fetchSong(id, serverId, client),
+      get()._fetchSong(songId, serverId, client),
       job.playlistId ? get()._fetchPlaylist(job.playlistId, serverId, client) : Promise.resolve(undefined),
     ])
 
     job.song = song
     job.playlist = playlist
     set(state => {
-      state.downloads[serverId].pending.byId[id] = { ...job }
+      state.downloadQueue.byId[id] = { ...job }
     })
 
     if (!song.albumId) {
@@ -136,7 +165,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     job.artist = artist
     job.artistInfo = artistInfo
     set(state => {
-      state.downloads[serverId].pending.byId[id] = { ...job }
+      state.downloadQueue.byId[id] = { ...job }
     })
 
     // make sure all art downloaded
@@ -158,14 +187,14 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     const path = await fetchFile(
       {
         itemType: 'song',
-        itemId: id,
-        fromUrl: client.downloadUri({ id }),
+        itemId: songId,
+        fromUrl: client.downloadUri({ id: songId }),
         useCacheBuster: false,
         expectedContentType: 'audio',
         progress: (received, total) => {
           set(state => {
-            state.downloads[serverId].pending.byId[id].received = received
-            state.downloads[serverId].pending.byId[id].total = total
+            state.downloadQueue.byId[id].received = received
+            state.downloadQueue.byId[id].total = total
           })
         },
       },
@@ -174,7 +203,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
 
     // save path
     set(state => {
-      state.downloads[serverId].songs[id] = { ...song, path }
+      state.downloads[serverId].songs[songId] = { ...song, path }
       state.downloads[serverId].albums[album.album.id] = album
 
       if (artist) {
@@ -306,10 +335,12 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 })
 
+export function downloadId(opt: DownloadJobOptions): string {
+  return opt.songId + opt.serverId
+}
+
 function createDownloadCache(): DownloadCache {
   return {
-    pending: { byId: {}, allIds: [] },
-
     songs: {},
     albums: {},
     artists: {},

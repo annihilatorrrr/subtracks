@@ -1,8 +1,9 @@
 import Button from '@app/components/Button'
 import { Song } from '@app/models/library'
+import { downloadId } from '@app/state/download'
 import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, StyleProp, StyleSheet, View, ViewStyle } from 'react-native'
 import Icon from 'react-native-vector-icons/Ionicons'
@@ -17,7 +18,7 @@ const useSongListDownload = (ids: string[]) => {
       return
     }
 
-    return ids.map(id => store.downloads[serverId]?.pending.byId[id])
+    return ids.map(songId => store.downloadQueue.byId[downloadId({ songId, serverId })])
   })
   const isDownloaded = useStore(store => {
     if (!serverId) {
@@ -29,20 +30,15 @@ const useSongListDownload = (ids: string[]) => {
       return false
     }
 
-    return ids.every(id => id in downloads.songs)
+    return ids.length > 0 && ids.every(id => id in downloads.songs)
   })
   const isFetching = useStore(store => {
     if (!serverId) {
       return false
     }
 
-    const downloads = store.downloads[serverId]
-    if (!downloads) {
-      return false
-    }
-
-    if (downloads.pending.allIds.length > 0) {
-      return ids.some(id => id === downloads.pending.allIds[0])
+    if (store.downloadQueue.allIds.length > 0) {
+      return ids.some(songId => downloadId({ songId, serverId }) === store.downloadQueue.allIds[0])
     }
     return false
   })
