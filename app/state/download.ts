@@ -3,8 +3,7 @@ import { AlbumSongs, ArtistAlbums, ArtistInfo, PlaylistSongs, Song } from '@app/
 import { ById, OrderedById } from '@app/models/state'
 import { fetchAlbum, fetchArtist, fetchArtistInfo, fetchPlaylist, fetchSong } from '@app/query/fetch/api'
 import { fetchExistingFile, fetchFile, FetchFileOptions } from '@app/query/fetch/file'
-import queryClient from '@app/query/queryClient'
-import qk from '@app/query/queryKeys'
+import q from '@app/query/queryKeys'
 import { SubsonicApiClient } from '@app/subsonic/api'
 import PromiseQueue from '@app/util/PromiseQueue'
 import { GetStore, SetStore } from './store'
@@ -207,7 +206,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<PlaylistSongs>(qk.playlist(id))
+    const cachedById = q.playlist.query({ id }).get()
     if (cachedById) {
       return cachedById
     }
@@ -221,7 +220,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<AlbumSongs>(qk.album(id))
+    const cachedById = q.album.query({ id }).get()
     if (cachedById) {
       return cachedById
     }
@@ -235,7 +234,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<ArtistAlbums>(qk.artist(id))
+    const cachedById = q.artist.query({ id }).get()
     if (cachedById) {
       return cachedById
     }
@@ -249,7 +248,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
       return downloaded
     }
 
-    const cachedById = queryClient.getQueryData<ArtistInfo>(qk.artistInfo(id))
+    const cachedById = q.artistInfo.query({ id }).get()
     if (cachedById) {
       return cachedById
     }

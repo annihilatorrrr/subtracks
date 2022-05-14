@@ -3,7 +3,7 @@ import queryClient from '@app/query/queryClient'
 import { useStore, useStoreDeep } from '@app/state/store'
 import cacheDir from '@app/util/cacheDir'
 import RNFS from 'react-native-fs'
-import qk from '@app/query/queryKeys'
+import q from '@app/query/queryKeys'
 
 export const useSwitchActiveServer = () => {
   const activeServerId = useStore(store => store.settings.activeServerId)
@@ -37,12 +37,12 @@ export const useResetImageCache = () => {
     try {
       // disable/invalidate queries
       await Promise.all([
-        queryClient.cancelQueries(qk.artistArt(), { active: true }),
-        queryClient.cancelQueries(qk.coverArt(), { active: true }),
-        queryClient.cancelQueries(qk.existingFiles(), { active: true }),
-        queryClient.invalidateQueries(qk.artistArt(), { refetchActive: false }),
-        queryClient.invalidateQueries(qk.coverArt(), { refetchActive: false }),
-        queryClient.invalidateQueries(qk.existingFiles(), { refetchActive: false }),
+        queryClient.cancelQueries(q.artistArt.partialKey(), { active: true }),
+        queryClient.cancelQueries(q.coverArt.partialKey(), { active: true }),
+        queryClient.cancelQueries(q.existingFiles.partialKey(), { active: true }),
+        queryClient.invalidateQueries(q.artistArt.partialKey(), { refetchActive: false }),
+        queryClient.invalidateQueries(q.coverArt.partialKey(), { refetchActive: false }),
+        queryClient.invalidateQueries(q.existingFiles.partialKey(), { refetchActive: false }),
       ])
 
       // delete all images
@@ -65,9 +65,9 @@ export const useResetImageCache = () => {
 
       // enable queries
       await Promise.all([
-        queryClient.refetchQueries(qk.existingFiles(), { active: true }),
-        queryClient.refetchQueries(qk.artistArt(), { active: true }),
-        queryClient.refetchQueries(qk.coverArt(), { active: true }),
+        queryClient.refetchQueries(q.existingFiles.partialKey(), { active: true }),
+        queryClient.refetchQueries(q.artistArt.partialKey(), { active: true }),
+        queryClient.refetchQueries(q.coverArt.partialKey(), { active: true }),
       ])
     }
   }

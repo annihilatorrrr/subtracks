@@ -95,20 +95,6 @@ export const useSetQueue = (type: QueueType, songs?: Song[]) => {
       return
     }
 
-    // const queue = songs.map(mapSongToTrackExt)
-    // const first = queue[options.playTrack || 0]
-
-    // if (!first.albumId) {
-    //   first.artwork = require('@res/fallback.png')
-    // } else {
-    //   const albumCoverArt = queryClient.getQueryData<string>(qk.albumCoverArt(first.albumId))
-    //   const existingFile = queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', albumCoverArt))
-    //   const downloadFile = queryClient.getQueryData<string>(qk.coverArt(albumCoverArt, 'thumbnail'))
-    //   if (existingFile || downloadFile) {
-    //     first.artwork = `file://${existingFile || downloadFile}`
-    //   }
-    // }
-
     await createSession({
       queue: songs,
       title: options.title,
@@ -117,8 +103,6 @@ export const useSetQueue = (type: QueueType, songs?: Song[]) => {
       playIdx: options.playTrack,
       shuffle: options.shuffle,
     })
-    // await _setQueue({ queue, type, contextId, ...options })
-    // QueueEvents.emit('set', { queue })
   }
 
   return { setQueue, contextId }

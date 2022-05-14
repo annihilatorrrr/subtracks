@@ -4,8 +4,7 @@ import { Album, Song } from '@app/models/library'
 import { Progress, QueueType, TrackExt } from '@app/models/trackplayer'
 import { fetchAlbum } from '@app/query/fetch/api'
 import { FetchExisingFileOptions, fetchExistingFile, fetchFile, FetchFileOptions } from '@app/query/fetch/file'
-import queryClient from '@app/query/queryClient'
-import qk from '@app/query/queryKeys'
+import q from '@app/query/queryKeys'
 import { SubsonicApiClient } from '@app/subsonic/api'
 import QueueEvents from '@app/trackplayer/QueueEvents'
 import PromiseQueue from '@app/util/PromiseQueue'
@@ -645,7 +644,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
     const albumIds = _.uniq(songs.map(s => s.albumId)).filter((id): id is string => id !== undefined)
 
     for (const albumId of albumIds) {
-      let coverArt = queryClient.getQueryData<string>(qk.albumCoverArt(albumId))
+      let coverArt = q.albumCoverArt.query({ id: albumId }).get()
 
       if (!coverArt) {
         throwIfQueueChanged()
@@ -659,8 +658,8 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       }
 
       let imagePath =
-        queryClient.getQueryData<string>(qk.existingFiles('coverArtThumb', coverArt)) ||
-        queryClient.getQueryData<string>(qk.coverArt(coverArt, 'thumbnail'))
+        q.existingFiles.query({ type: 'coverArtThumb', itemId: coverArt }).get() ||
+        q.coverArt.query({ coverArt, size: 'thumbnail' }).get()
 
       if (!imagePath && fetchMessing) {
         throwIfQueueChanged()
@@ -705,7 +704,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   _getAlbum: async id => {
     try {
       const res = await fetchAlbum(id, get()._getClient())
-      queryClient.setQueryData(qk.album(id), res)
+      q.album.query({ id }).set(res)
       return res
     } catch {}
   },
@@ -722,7 +721,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
 
     try {
       const res = await fetchFile(options, serverId)
-      queryClient.setQueryData(qk.coverArt(coverArt, 'thumbnail'), res)
+      q.coverArt.query({ coverArt, size: 'thumbnail' }).set(res)
       return res
     } catch {}
   },
@@ -733,7 +732,7 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
 
     try {
       const res = await fetchExistingFile(options, serverId)
-      queryClient.setQueryData(qk.existingFiles(options.itemType, options.itemId), res)
+      q.existingFiles.query({ itemId: options.itemId, type: options.itemType }).set(res)
       return res
     } catch {}
   },

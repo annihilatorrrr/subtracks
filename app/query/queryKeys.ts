@@ -1,57 +1,61 @@
 import { CacheImageSize, CacheItemTypeKey } from '@app/models/cache'
+import { AlbumSongs, Artist, ArtistAlbums, ArtistInfo, Playlist, PlaylistSongs, Song } from '@app/models/library'
+import { CollectionById } from '@app/models/state'
 import { GetAlbumList2TypeBase } from '@app/subsonic/params'
+import { QueryKey } from 'react-query'
+import queryClient from './queryClient'
 
-const qk = {
-  starredItems: (id: string) => ['starredItems', id],
-  albumCoverArt: (id: string) => ['albumCoverArt', id],
+type KeyFactorySimple<KI extends string> = () => KI
+type KeyFactory<KI extends string, KP extends object> = (params: KP) => [KI, KP]
+type KeyPartialFactory<KI extends string, KP extends object> = (params?: Partial<KP>) => [KI, Partial<KP>] | [KI]
 
-  artists: 'artists',
-  artist: (id: string) => ['artist', id],
-  artistInfo: (id: string) => ['artistInfo', id],
-  artistTopSongs: (artistName: string) => ['artistTopSongs', artistName],
-
-  playlists: 'playlists',
-  playlist: (id: string) => ['playlist', id],
-
-  album: (id: string) => ['album', id],
-  albumList: (type: GetAlbumList2TypeBase, size?: number) => {
-    const key: (string | number)[] = ['albumList', type]
-    size !== undefined && key.push(size)
-    return key
-  },
-
-  search: (query: string, artistCount?: number, albumCount?: number, songCount?: number) => [
-    'search',
-    query,
-    artistCount,
-    albumCount,
-    songCount,
-  ],
-
-  coverArt: (coverArt?: string, size?: CacheImageSize) => {
-    const key: string[] = ['coverArt']
-    coverArt !== undefined && key.push(coverArt)
-    size !== undefined && key.push(size)
-    return key
-  },
-  artistArt: (artistId?: string, size?: CacheImageSize) => {
-    const key: string[] = ['artistArt']
-    artistId !== undefined && key.push(artistId)
-    size !== undefined && key.push(size)
-    return key
-  },
-  songPath: (id?: string) => {
-    const key: string[] = ['songPath']
-    id !== undefined && key.push(id)
-    return key
-  },
-
-  existingFiles: (type?: CacheItemTypeKey, itemId?: string) => {
-    const key: string[] = ['existingFiles']
-    type !== undefined && key.push(type)
-    itemId !== undefined && key.push(itemId)
-    return key
-  },
+function buildQueries<V>(keyFactory: () => QueryKey) {
+  return {
+    get: () => queryClient.getQueryData<V>(keyFactory()),
+    set: (value: V) => queryClient.setQueryData<V>(keyFactory(), value),
+  }
 }
 
-export default qk
+function create<KI extends string>(keyId: KI) {
+  return <KP extends object, V>() => {
+    const key: KeyFactory<KI, KP> = (props: KP) => [keyId, props]
+    const partialKey: KeyPartialFactory<KI, KP> = (props?: Partial<KP>) => (props ? [keyId, props] : [keyId])
+    const query = (props: KP) => buildQueries<V>(() => key(props))
+
+    return { query, key, partialKey }
+  }
+}
+
+function createSimple<KI extends string>(keyId: KI) {
+  return <V>() => {
+    const key: KeyFactorySimple<KI> = () => keyId
+    const query = buildQueries<V>(() => key())
+
+    return { query, key }
+  }
+}
+
+export const q = {
+  starredItems: create('starredItems')<{ id: string }, boolean>(),
+  albumCoverArt: create('albumCoverArt')<{ id: string }, string | undefined>(),
+
+  artists: createSimple('artists')<CollectionById<Artist>>(),
+  artist: create('artist')<{ id: string }, ArtistAlbums>(),
+  artistInfo: create('artistInfo')<{ id: string }, ArtistInfo>(),
+  artistTopSongs: create('artistTopSongs')<{ artistName: string }, Song[]>(),
+
+  playlists: createSimple('playlists')<CollectionById<Playlist>>(),
+  playlist: create('playlist')<{ id: string }, PlaylistSongs>(),
+
+  album: create('album')<{ id: string }, AlbumSongs>(),
+  albumList: create('albumList')<{ type: GetAlbumList2TypeBase; size?: number }, unknown>(),
+
+  search: create('search')<{ query: string; artistCount?: number; albumCount?: number; songCount?: number }, unknown>(),
+
+  coverArt: create('coverArt')<{ coverArt: string; size: CacheImageSize }, string>(),
+  artistArt: create('artistArt')<{ artistId: string; size: CacheImageSize }, string>(),
+  songPath: create('songPath')<{ id: string }, string>(),
+  existingFiles: create('existingFiles')<{ type: CacheItemTypeKey; itemId: string }, string | undefined>(),
+}
+
+export default q

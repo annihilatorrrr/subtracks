@@ -1,6 +1,5 @@
 import { CacheItemTypeKey } from '@app/models/cache'
-import queryClient from '@app/query/queryClient'
-import qk from '@app/query/queryKeys'
+import q from '@app/query/queryKeys'
 import { useStore } from '@app/state/store'
 import cacheDir from '@app/util/cacheDir'
 import userAgent from '@app/util/userAgent'
@@ -132,7 +131,7 @@ export async function fetchFile(options: FetchFileOptions, serverId: string | un
   }
 
   const downloadPath = res.path()
-  queryClient.setQueryData<string>(qk.existingFiles(itemType, itemId), downloadPath)
+  q.existingFiles.query({ type: itemType, itemId }).set(downloadPath)
 
   console.log('downloaded file:', downloadPath)
   return downloadPath
