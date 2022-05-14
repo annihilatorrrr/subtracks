@@ -1,17 +1,18 @@
 import useClient from '@app/hooks/useClient'
-import { AlbumSongs, ArtistAlbums, ArtistInfo, PlaylistSongs, SearchResults, Song } from '@app/models/library'
+import { AlbumSongs, ArtistAlbums, ArtistInfo, PlaylistSongs, Song } from '@app/models/library'
 import { mapAlbum, mapArtist, mapArtistInfo, mapPlaylist, mapSong } from '@app/models/map'
+import queryClient from '@app/query/queryClient'
+import qk from '@app/query/queryKeys'
 import { SubsonicApiClient } from '@app/subsonic/api'
 import { GetAlbumList2TypeBase, Search3Params, StarParams } from '@app/subsonic/params'
 import { mapCollectionById } from '@app/util/state'
-import { AlbumCoverArtCache, StarredItemsCache } from '../cache'
 
 function cacheStarredData<T extends { id: string; starred?: undefined | any }>(item: T) {
-  StarredItemsCache({ id: item.id }).setQueryData(!!item.starred)
+  queryClient.setQueryData<boolean>(qk.starredItems(item.id), !!item.starred)
 }
 
 function cacheAlbumCoverArtData<T extends { id: string; coverArt?: string }>(item: T) {
-  AlbumCoverArtCache({ id: item.id }).setQueryData(item.coverArt)
+  queryClient.setQueryData<string | undefined>(qk.albumCoverArt(item.id), item.coverArt)
 }
 
 export const useFetchArtists = () => {
@@ -141,7 +142,7 @@ export const useFetchSong = () => {
 export const useFetchSearchResults = () => {
   const client = useClient()
 
-  return async (params: Search3Params): Promise<SearchResults> => {
+  return async (params: Search3Params) => {
     const res = await client().search3(params)
 
     res.data.artists.forEach(cacheStarredData)

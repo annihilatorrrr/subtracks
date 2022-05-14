@@ -1,7 +1,5 @@
 import { useIsPlaying } from '@app/hooks/trackplayer'
 import { Album, Artist, Playlist, Song, StarrableItemType } from '@app/models/library'
-import { SongPathKey } from '@app/query/cache'
-import { storage } from '@app/query/downloadCache'
 import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
@@ -9,12 +7,10 @@ import { useNavigation } from '@react-navigation/native'
 import equal from 'fast-deep-equal/es6/react'
 import React, { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatListProps, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native'
-import { useMMKVString } from 'react-native-mmkv'
 import * as Progress from 'react-native-progress'
 import IconFA from 'react-native-vector-icons/FontAwesome'
 import IconFA5 from 'react-native-vector-icons/FontAwesome5'
 import IconMat from 'react-native-vector-icons/MaterialIcons'
-import { hashQueryKey } from 'react-query'
 import { AlbumContextPressable, ArtistContextPressable, SongContextPressable } from './ContextMenu'
 import CoverArt, { AlbumIdImageProps, ArtistImageProps, CoverArtImageProps } from './CoverArt'
 import PressableOpacity from './PressableOpacity'
@@ -243,9 +239,8 @@ export const PlaylistListItem = React.memo<Omit<ListItemProps, 'showStar'> & Pla
 const useSongDownload = (id: string) => {
   const download = useStore(store => () => store.downloadSong(id))
   const serverId = useStore(store => store.settings.activeServerId)
-  const job = useStoreDeep(store => (serverId ? store.downloads[serverId]?.byId[id] : undefined))
-  // const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
-  const [songPath] = useMMKVString(hashQueryKey(SongPathKey({ id })), serverId ? storage(serverId) : undefined)
+  const job = useStoreDeep(store => (serverId ? store.downloads[serverId]?.pending.byId[id] : undefined))
+  const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
   const isFetching = useStore(store => {
     if (!serverId) {
       return false
@@ -256,8 +251,8 @@ const useSongDownload = (id: string) => {
       return false
     }
 
-    if (downloads.allIds.length > 0) {
-      return downloads.allIds[0] === id
+    if (downloads.pending.allIds.length > 0) {
+      return downloads.pending.allIds[0] === id
     }
     return false
   })
@@ -271,8 +266,8 @@ const useSongDownload = (id: string) => {
       return false
     }
 
-    if (downloads.allIds.length > 0) {
-      return downloads.allIds.indexOf(id) > 0
+    if (downloads.pending.allIds.length > 0) {
+      return downloads.pending.allIds.indexOf(id) > 0
     }
     return false
   })

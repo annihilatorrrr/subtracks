@@ -1,9 +1,9 @@
 import { CacheItemTypeKey } from '@app/models/cache'
-import { ArtistArtFilterKey, CoverArtFilterKey, ExistingFilesFilterKey } from '@app/query/cache'
 import queryClient from '@app/query/queryClient'
 import { useStore, useStoreDeep } from '@app/state/store'
 import cacheDir from '@app/util/cacheDir'
 import RNFS from 'react-native-fs'
+import qk from '@app/query/queryKeys'
 
 export const useSwitchActiveServer = () => {
   const activeServerId = useStore(store => store.settings.activeServerId)
@@ -37,12 +37,12 @@ export const useResetImageCache = () => {
     try {
       // disable/invalidate queries
       await Promise.all([
-        queryClient.cancelQueries(ArtistArtFilterKey(), { active: true }),
-        queryClient.cancelQueries(CoverArtFilterKey(), { active: true }),
-        queryClient.cancelQueries(ExistingFilesFilterKey(), { active: true }),
-        queryClient.invalidateQueries(ArtistArtFilterKey(), { refetchActive: false }),
-        queryClient.invalidateQueries(CoverArtFilterKey(), { refetchActive: false }),
-        queryClient.invalidateQueries(ExistingFilesFilterKey(), { refetchActive: false }),
+        queryClient.cancelQueries(qk.artistArt(), { active: true }),
+        queryClient.cancelQueries(qk.coverArt(), { active: true }),
+        queryClient.cancelQueries(qk.existingFiles(), { active: true }),
+        queryClient.invalidateQueries(qk.artistArt(), { refetchActive: false }),
+        queryClient.invalidateQueries(qk.coverArt(), { refetchActive: false }),
+        queryClient.invalidateQueries(qk.existingFiles(), { refetchActive: false }),
       ])
 
       // delete all images
@@ -65,9 +65,9 @@ export const useResetImageCache = () => {
 
       // enable queries
       await Promise.all([
-        queryClient.refetchQueries(ExistingFilesFilterKey(), { active: true }),
-        queryClient.refetchQueries(ArtistArtFilterKey(), { active: true }),
-        queryClient.refetchQueries(CoverArtFilterKey(), { active: true }),
+        queryClient.refetchQueries(qk.existingFiles(), { active: true }),
+        queryClient.refetchQueries(qk.artistArt(), { active: true }),
+        queryClient.refetchQueries(qk.coverArt(), { active: true }),
       ])
     }
   }
