@@ -66,8 +66,10 @@ const ContextMenu: React.FC<InternalContextMenuProps> = ({
         customStyles={styles}
         renderOptionsContainer={(options: any) => (
           <ScrollView>
-            {menuHeader}
-            {options}
+            <View style={styles.optionsScrollContent}>
+              {menuHeader}
+              {options}
+            </View>
           </ScrollView>
         )}>
         {menuOptions}
@@ -338,15 +340,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(45, 45, 45, 0.95)',
     maxHeight: 365,
   },
-  optionsWrapper: {
-    // marginBottom: 10,
-    paddingHorizontal: 20,
-    // backgroundColor: 'purple',
-  },
   menuHeader: {
     paddingTop: 14,
     paddingBottom: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -370,12 +367,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
   },
+  optionsScrollContent: {
+    marginBottom: 10,
+  },
   option: {
     paddingVertical: 8,
-    // paddingHorizontal: 100,
+    paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    // backgroundColor: 'blue',
     overflow: 'hidden',
   },
   icon: {
@@ -384,12 +383,10 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor: 'red',
   },
   optionText: {
     fontFamily: font.semiBold,
     fontSize: 16,
     color: colors.text.primary,
-    // backgroundColor: 'green',
   },
 })

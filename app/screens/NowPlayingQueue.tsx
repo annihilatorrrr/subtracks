@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listItem: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
   },
 })
 

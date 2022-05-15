@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   listItem: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
   },
   nothing: {
     width: '100%',

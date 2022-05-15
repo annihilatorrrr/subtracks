@@ -54,14 +54,16 @@ const FilterButton = React.memo<{
           optionsContainer: styles.optionsContainer,
         }}>
         <ScrollView style={styles.optionsScroll} overScrollMode="never">
-          <View style={styles.header}>
-            <Text style={styles.headerText} numberOfLines={2} ellipsizeMode="clip">
-              {title}
-            </Text>
+          <View style={styles.optionsScrollContent}>
+            <View style={styles.header}>
+              <Text style={styles.headerText} numberOfLines={2} ellipsizeMode="clip">
+                {title}
+              </Text>
+            </View>
+            {data.map(o => (
+              <Option key={o.value} text={o.text} value={o.value} selected={o.value === value} />
+            ))}
           </View>
-          {data.map(o => (
-            <Option key={o.value} text={o.text} value={o.value} selected={o.value === value} />
-          ))}
         </ScrollView>
       </MenuOptions>
     </Menu>
@@ -93,10 +95,12 @@ const styles = StyleSheet.create({
   optionsContainer: {
     backgroundColor: 'rgba(45, 45, 45, 0.95)',
   },
+  optionsScrollContent: {
+    paddingBottom: 10,
+  },
   header: {
-    paddingHorizontal: 20,
-    // paddingVertical: 10,
-    marginTop: 16,
+    paddingHorizontal: 15,
+    marginTop: 15,
     marginBottom: 6,
   },
   headerText: {
@@ -106,7 +110,7 @@ const styles = StyleSheet.create({
   },
   option: {
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -117,7 +121,7 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   icon: {
-    marginRight: 14,
+    marginRight: 10,
     width: 32,
     height: 32,
     justifyContent: 'center',

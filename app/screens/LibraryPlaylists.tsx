@@ -30,7 +30,7 @@ const PlaylistsList = () => {
 
 const styles = StyleSheet.create({
   listItem: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
   },
 })
 

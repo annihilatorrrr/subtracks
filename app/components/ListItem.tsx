@@ -373,7 +373,7 @@ function createSizeStyle(size: 'big' | 'small') {
       fontFamily: size === 'small' ? font.medium : font.semiBold,
     },
     subtitle: {
-      fontSize: size === 'small' ? 14 : 16,
+      fontSize: size === 'small' ? 14 : 15,
       fontFamily: size === 'small' ? font.regular : font.medium,
     },
   })

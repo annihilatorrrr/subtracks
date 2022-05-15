@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
   },
   category: {
     // marginTop: 12,
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     height: 190,
   },
   artScrollContent: {
-    paddingLeft: 20,
+    paddingLeft: 15,
   },
   item: {
     flex: 1,

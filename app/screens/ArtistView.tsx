@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     minHeight: artistCoverHeight * 2,
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
   },
   titleContainer: {
     width: '100%',

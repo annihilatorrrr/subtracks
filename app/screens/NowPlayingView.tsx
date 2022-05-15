@@ -102,8 +102,9 @@ const coverArtStyles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
+    marginTop: 15,
     paddingBottom: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
   },
   image: {
     height: '100%',
@@ -138,6 +139,7 @@ const infoStyles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     paddingHorizontal: 10,
+    marginTop: 15,
   },
   details: {
     flex: 1,
@@ -223,7 +225,7 @@ const SeekBar = () => {
 const seekStyles = StyleSheet.create({
   container: {
     width: '100%',
-    marginTop: 16,
+    marginTop: 15,
   },
   barContainer: {
     flexDirection: 'row',
@@ -430,7 +432,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
   },
 })
 

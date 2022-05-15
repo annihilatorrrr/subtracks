@@ -99,7 +99,7 @@ const SearchResultsView = withSuspense<{
 
 const styles = StyleSheet.create({
   listItem: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
   },
 })
 

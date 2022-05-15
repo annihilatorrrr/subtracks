@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     paddingBottom: 20,
     alignItems: 'stretch',
   },
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   textInput: {
-    marginTop: 20,
+    marginTop: 15,
     paddingHorizontal: 12,
     paddingRight: 46,
   },

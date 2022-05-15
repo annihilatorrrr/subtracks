@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listItem: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
   },
 })
 
