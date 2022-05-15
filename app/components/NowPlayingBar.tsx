@@ -5,7 +5,7 @@ import colors from '@app/styles/colors'
 import font from '@app/styles/font'
 import { useNavigation } from '@react-navigation/native'
 import React, { useCallback } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { State } from 'react-native-track-player'
 import IconFA5 from 'react-native-vector-icons/FontAwesome5'
 
@@ -69,7 +69,7 @@ const Controls = React.memo(() => {
 
   return (
     <View style={styles.controls}>
-      {state === State.Buffering ? (
+      {state === State.Buffering || state === State.Connecting ? (
         <ActivityIndicator color="white" size="large" animating={true} />
       ) : (
         <PressableOpacity onPress={action} hitSlop={14}>

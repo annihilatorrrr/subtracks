@@ -289,6 +289,7 @@ const PlayerControls = () => {
       playPauseAction = pause
       break
     case State.Buffering:
+    case State.Connecting:
       disabled = false
       playPauseIcon = 'circle'
       playPauseAction = pause
@@ -320,7 +321,7 @@ const PlayerControls = () => {
           </PressableOpacity>
           <PressableOpacity onPress={playPauseAction} disabled={disabled} style={controlsStyles.play}>
             <IconFA name={playPauseIcon} size={82} color="white" />
-            {state === State.Buffering && (
+            {(state === State.Buffering || state === State.Connecting) && (
               <ActivityIndicator
                 style={controlsStyles.buffering}
                 color={colors.gradient.low}

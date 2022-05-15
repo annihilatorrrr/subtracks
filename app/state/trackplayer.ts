@@ -34,6 +34,7 @@ export type Session = {
   currentIdx: number
   progress: Progress
   holdProgress: boolean
+  holdState: boolean
   contextId: string
   shuffleOrder?: number[]
   playerState: State
@@ -125,7 +126,8 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
         contextId,
         progress: { position: 0, duration: 0, buffered: 0 },
         holdProgress: false,
-        playerState: State.None,
+        holdState: true,
+        playerState: State.Connecting,
         duckPaused: false,
         currentIdx: playIdx || 0,
         current: queue[playIdx || 0],
@@ -145,6 +147,14 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
       await TrackPlayer.destroy()
       await TrackPlayer.setupPlayer(get()._getPlayerOptions())
       await get()._syncQueue()
+
+      set(state => {
+        if (!state.session) {
+          return
+        }
+
+        state.session.holdState = false
+      })
       await TrackPlayer.play()
     })
 
@@ -214,6 +224,10 @@ export const createTrackPlayerSlice = (set: SetStore, get: GetStore): TrackPlaye
   },
 
   onPlaybackState: playbackState => {
+    if (get().session?.holdState) {
+      return
+    }
+
     console.log('state:', State[playbackState])
     set(state => {
       if (!state.session) {
