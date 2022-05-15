@@ -1,6 +1,6 @@
 import Button from '@app/components/Button'
 import { Song } from '@app/models/library'
-import { downloadId } from '@app/state/download'
+import { createJobId } from '@app/state/download'
 import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
 import React from 'react'
@@ -18,7 +18,7 @@ const useSongListDownload = (ids: string[]) => {
       return
     }
 
-    return ids.map(songId => store.downloadQueue.byId[downloadId({ songId, serverId })])
+    return ids.map(songId => store.downloadQueue.byId[createJobId({ songId, serverId })])
   })
   const isDownloaded = useStore(store => {
     if (!serverId) {
@@ -38,7 +38,7 @@ const useSongListDownload = (ids: string[]) => {
     }
 
     if (store.downloadQueue.allIds.length > 0) {
-      return ids.some(songId => downloadId({ songId, serverId }) === store.downloadQueue.allIds[0])
+      return ids.some(songId => createJobId({ songId, serverId }) === store.downloadQueue.allIds[0])
     }
     return false
   })

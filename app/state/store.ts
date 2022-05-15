@@ -72,7 +72,11 @@ export const useStore = create<
         name: '@appStore',
         version: DB_VERSION,
         getStorage: () => AsyncStorage,
-        partialize: state => ({ settings: state.settings }),
+        partialize: ({ settings, downloads, downloadQueue }) => ({
+          settings,
+          downloads,
+          downloadQueue,
+        }),
         onRehydrateStorage: _preState => {
           return async (postState, _error) => {
             await postState?.setActiveServer(postState.settings.activeServerId, true)

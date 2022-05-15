@@ -1,6 +1,6 @@
 import { useIsPlaying } from '@app/hooks/trackplayer'
 import { Album, Artist, Playlist, Song, StarrableItemType } from '@app/models/library'
-import { downloadId } from '@app/state/download'
+import { createJobId } from '@app/state/download'
 import { useStore, useStoreDeep } from '@app/state/store'
 import colors from '@app/styles/colors'
 import font from '@app/styles/font'
@@ -240,7 +240,7 @@ export const PlaylistListItem = React.memo<Omit<ListItemProps, 'showStar'> & Pla
 const useSongDownload = (id: string) => {
   const download = useStore(store => () => store.downloadSong(id))
   const serverId = useStore(store => store.settings.activeServerId)
-  const jobId = downloadId({ songId: id, serverId: serverId! })
+  const jobId = createJobId({ songId: id, serverId: serverId! })
   const job = useStoreDeep(store => store.downloadQueue.byId[jobId])
   const songPath = useStore(store => (serverId ? store.downloads[serverId]?.songs[id]?.path : undefined))
   const isFetching = useStore(store => {
@@ -266,7 +266,7 @@ const useSongDownload = (id: string) => {
     if (progress === undefined || newProgress > progress) {
       setProgress(newProgress)
     }
-  }, [job?.received, job?.total, progress])
+  }, [id, job?.received, job?.total, progress])
 
   return { download, progress, isFetching, isPending, songPath }
 }
@@ -289,29 +289,6 @@ export const SongListItem = React.memo<ListItemProps & SongProps>(props => {
         <ItemTextWrapper>
           <ItemTextTitleSong contextId={contextId} queueId={queueId} title={song.title} size={size} />
           <ItemTextLineWrapper>
-            {/* <ItemTextLineIconWrapper>
-              <Progress.Pie
-                size={13}
-                borderWidth={1}
-                style={styles.iconProgress}
-                color={colors.text.secondary}
-                progress={progress}
-              />
-            </ItemTextLineIconWrapper>
-            <ItemTextLineIconWrapper>
-              <ActivityIndicator size={14} color={colors.text.secondary} style={styles.iconDownloading} />
-            </ItemTextLineIconWrapper>
-            <ItemTextLineIconWrapper>
-              <IconMat name="file-download" size={15} color={colors.text.secondary} style={styles.iconPending} />
-            </ItemTextLineIconWrapper>
-            <ItemTextLineIconWrapper>
-              <IconMat
-                name="file-download-done"
-                size={15}
-                color={colors.text.secondary}
-                style={styles.iconDownloaded}
-              />
-            </ItemTextLineIconWrapper> */}
             {isFetching &&
               (progress !== undefined ? (
                 <ItemTextLineIconWrapper>
@@ -348,11 +325,11 @@ export const SongListItem = React.memo<ListItemProps & SongProps>(props => {
         </ItemTextWrapper>
       </SongItemPressable>
       {showStar && <ItemControls id={song.id} type="song" />}
-      <View style={styles.controls}>
+      {/* <View style={styles.controls}>
         <PressableOpacity onPress={() => download()} style={styles.controlItem}>
           <IconFA name="download" color={colors.text.secondary} size={26} />
         </PressableOpacity>
-      </View>
+      </View> */}
     </ItemWrapper>
   )
 }, equal)

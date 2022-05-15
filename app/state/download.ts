@@ -8,7 +8,7 @@ import { SubsonicApiClient } from '@app/subsonic/api'
 import PromiseQueue from '@app/util/PromiseQueue'
 import { GetStore, SetStore } from './store'
 
-let downloadQueue: PromiseQueue
+let jobPromises: PromiseQueue
 
 export type DownloadJob = {
   id: string
@@ -67,11 +67,11 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   downloadQueue: { byId: {}, allIds: [] },
 
   initDownloads: () => {
-    if (downloadQueue) {
+    if (jobPromises) {
       return
     }
 
-    downloadQueue = new PromiseQueue(1)
+    jobPromises = new PromiseQueue(1)
 
     for (const id of get().downloadQueue.allIds) {
       get()._enqueueJob(id)
@@ -85,7 +85,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
     }
 
     const { downloads, serverId } = downloadCache
-    const id = downloadId({ songId, serverId })
+    const id = createJobId({ songId, serverId })
 
     if (songId in downloads.songs || id in get().downloadQueue.byId) {
       return
@@ -103,7 +103,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 
   _enqueueJob: async (id: string) => {
-    return downloadQueue.enqueue(() =>
+    return jobPromises.enqueue(() =>
       get()
         ._downloadJob(id)
         .catch(err => {
@@ -335,7 +335,7 @@ export const createDownloadSlice = (set: SetStore, get: GetStore): DownloadSlice
   },
 })
 
-export function downloadId(opt: DownloadJobOptions): string {
+export function createJobId(opt: DownloadJobOptions): string {
   return opt.songId + opt.serverId
 }
 
